@@ -30,11 +30,28 @@ Install the pinned test/lint dependencies, run Direct Mode and linter checks, th
 ```powershell
 python -m pip install -r requirements.txt
 $env:PYTHONIOENCODING = 'utf-8'
-python -m pytest tests/direct/ -v
+python -m pytest tests/direct/ -q --tb=short
+python -m compileall -q contracts tests
+genvm-lint lint contracts/boundary_os.py
 genvm-lint check contracts/boundary_os.py --json
 genvm-lint typecheck contracts/boundary_os.py
-gltest tests/integration/ -v -s --network studionet
+python -m pytest tests/integration/test_boundary_os_studionet.py -q -s --tb=short -p no:cacheprovider
 ```
+
+## Local validation record
+
+Run on 2026-10-13 with Python 3.12.10, `genlayer-test` 0.29.2, `genlayer-py` 0.16.3, `genvm-linter` 0.11.1rc2, and GenLayer CLI 0.40.0-rc.3:
+
+| Command | Result |
+|---|---|
+| `python -m pytest tests/direct/ -q --tb=short` | **28 passed** |
+| `python -m compileall -q contracts tests` | **Passed** |
+| `genvm-lint check contracts/boundary_os.py --json` | **Passed:** 3 lint checks; SDK schema validation found 22 methods (8 views, 14 writes, no constructor args). Warning: a newer runner is available. |
+| `genvm-lint typecheck contracts/boundary_os.py` | **Passed:** no type errors |
+| `genvm-lint lint contracts/boundary_os.py` | **Passed:** 3 checks |
+| `python -m pytest tests/integration/test_boundary_os_studionet.py -q -s --tb=short -p no:cacheprovider` | **Blocked:** four setup transactions finalized; later RPC calls failed with an RLP internal error / Cloudflare 502. No live action authorization or hard-denial pass. |
+
+The current GenVM runner could not be extracted into the user cache due to Windows `WinError 5`; validation used the runner already cached for the pinned SDK hash. The linter's attempt to look up the latest version was also blocked by sandboxed network access. Do not describe this as validation against the latest runner.
 
 The integration test deploys a **disposable** contract, creates an agent/policy/consumer, then tries a permitted action, live semantic evaluation, receipt consumption, and deterministic hard-deny case. On 2026-10-13 the disposable deployment and the first three setup writes finalized with `MAJORITY_AGREE`. The next `submit_action` attempt failed while polling because `https://studio.genlayer.com/api` returned a Cloudflare 502 HTML response to `eth_getTransactionByHash`. A preceding run also received `gen_call failed (code=-32603): RLP string ends with 309 superfluous bytes` for a read-only call. Therefore the live authorization, hard-denial, consumption, and receipt-read assertions have **not** passed. These failures are recorded as external RPC blockers, not contract success.
 
