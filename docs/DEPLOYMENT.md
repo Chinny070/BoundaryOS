@@ -11,7 +11,7 @@ The intended canonical target is GenLayer Studionet (chain ID `61999`, RPC `http
 | Canonical Studionet contract address | None; release deployment not performed |
 | Canonical deployment transaction | None |
 | Disposable Studionet contract | `0xe5bcECDE0F002E78fa6A9271519d42e81D643d94` |
-| Disposable deployment transaction | `0x9597081e8e9a19a8683f2f0fdfe003b3be83ca48636687c929b9eb9adad8c51b` |
+| Disposable deployment transaction | `0x9597081e8e9a19a8683f2f0fdfe003b3be83ca48636687c929b9eb9adad8c51b` — `FINALIZED`, `MAJORITY_AGREE` |
 | Deployment source SHA-256 fingerprint | `78e7623d7fa68828e0339bb668e976bb8b57b60f81dddd222ff0ca21f7043c16` (local source at run time; no on-chain source-parity proof) |
 | Registration transaction | `0x27b06fae6e1d6192f6eacbb563da0b9e9c1ddfc2b79372ef45e5c3b9249787b2` — `FINALIZED`, `MAJORITY_AGREE` |
 | Policy creation transaction | `0xecfd49ddefa1e3a7b3d033555d7bd3965b82c4c73e3e5840401f13e2e719387e` — `FINALIZED`, `MAJORITY_AGREE` |
