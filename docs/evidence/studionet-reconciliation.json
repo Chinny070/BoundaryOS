@@ -1,0 +1,57 @@
+{
+  "chain_id": 61999,
+  "contract_address": "0xe5bcECDE0F002E78fa6A9271519d42e81D643d94",
+  "deployment_tx": "0x9597081e8e9a19a8683f2f0fdfe003b3be83ca48636687c929b9eb9adad8c51b",
+  "explorer": {
+    "detail_failure": "Cloudflare HTTP 502",
+    "transaction_detail_accessible": false,
+    "transaction_search_listing_verified": true
+  },
+  "instance_role": "disposable_diagnostic_only",
+  "latest_rpc_probe": {
+    "attempts": 5,
+    "failure_class": "requests.ConnectionError",
+    "method": "eth_chainId",
+    "observed_at": "2026-10-14T22:00:00Z",
+    "result": "blocked",
+    "writes_broadcast": false
+  },
+  "network": "studionet",
+  "prior_action_id_transcription": {
+    "length": 65,
+    "valid": false,
+    "value": "8e591880333480e0ea2e0d0cec8c1e6aab43a916644ecf39770db92efe38b73ce"
+  },
+  "proposal": {
+    "action_id": "08e59188033480e0ea2e0d0cec8c1eaab43a916644ecf39770db92efe38b73ce",
+    "action_nonce": 1,
+    "action_state": "PENDING",
+    "classification": "finalized_proposal_only_not_evaluated",
+    "execution_result": "SUCCESS",
+    "expired_at_observation": true,
+    "expires_at_unix": 1791852412,
+    "genlayer_tx_id": "0x64fe023e2f90c845a5e04054eabe2b3620f08b1b8cbd1f5afb57518ce807ecda",
+    "observed_at": "2026-10-14T20:31:48.699247+00:00",
+    "raw_consensus_result": 6,
+    "receipt_present": false,
+    "sender": "0x42bF56A95c8B827a5d0D0f1BeC6F3ad8f0AeA11F",
+    "sender_nonce": 4,
+    "status": "FINALIZED",
+    "submitted_at_unix": 1791851812,
+    "validator_votes": {
+      "0x14402D49f317CE1a2F35BAE01b1804A2A9703dCb": "agree",
+      "0x76c25AFC12c75485703cCFfd0083AA6201455B25": "agree",
+      "0x90402341F0B0e97b23023c0a87de957FB7148E0F": "agree",
+      "0x9ea87b28DcA2F79fe108CF06a4c13B4c876AC23d": "idle",
+      "0xcE1d6bBB36B744536153966B4DD42276f5ADd0F8": "idle"
+    },
+    "vm_error_code": null
+  },
+  "rpc": "https://studio.genlayer.com/api",
+  "schema_version": 1,
+  "source": {
+    "current_sha256": "b957b969bdb9b605f5ddc70ab3a3d62bef6dd1de15eca6a61cd4e43df5e94888",
+    "deployed_source_parity_verified": false
+  },
+  "verification_limit": "No semantic decision or receipt exists for this expired proposal; no live authorization outcome is established."
+}

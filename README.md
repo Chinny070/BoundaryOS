@@ -2,7 +2,7 @@
 
 BoundaryOS is a standalone GenLayer Intelligent Contract for checking whether an authenticated agent's proposed action fits a principal's current delegation policy. It combines deterministic permission and quota checks with an independently repeated semantic purpose judgment, then stores an action-bound, version-bound receipt.
 
-**Current state:** the Direct Mode suite and cached-runner GenVM SDK/linter checks pass locally. A disposable Studionet instance and its setup writes finalized, and its action proposal was independently recovered as finalized after the SDK poll failed. That proposal was not evaluated, so there is still no verified live authorization receipt, canonical deployment, or submission-ready live evidence. A repeat integration attempt stalled before broadcasting (latest and pending signer nonce remained unchanged); see [Deployment](docs/DEPLOYMENT.md) for exact evidence and limitations.
+**Current state:** the Direct Mode suite and cached-runner GenVM SDK/linter checks pass locally. A resumable, secret-free Studionet verification harness now checkpoints broadcasts, recovers transaction IDs after interrupted polling, and never automatically redeploys or resends unresolved writes. Existing disposable setup writes and its action proposal finalized, but the action itself expired without evaluation. Current attempts are blocked before any write by Studionet RPC connection failures and the absence of stable locally configured signers. There is no verified live authorization receipt, canonical deployment, or submission-ready live evidence. See [Deployment](docs/DEPLOYMENT.md) for reproducible commands and evidence.
 
 ## What the contract protects
 
@@ -60,7 +60,7 @@ genvm-lint check contracts/boundary_os.py --json
 genvm-lint typecheck contracts/boundary_os.py
 ```
 
-The Direct Mode suite uses mocked LLM results only to test local contract behavior and validator rejection. These tests are not live consensus evidence. For real validators, run the disposable Studionet flow in [tests/integration](tests/integration/); it waits for `FINALIZED` and records the returned identifiers in terminal output. It is not a canonical deployment.
+The Direct Mode suite uses mocked LLM results only to test local contract behavior and validator rejection. These tests are not live consensus evidence. For real validators, use the resumable disposable Studionet harness in [tests/integration/studionet_resume.py](tests/integration/studionet_resume.py). The default command is read-only; a live test run must be explicitly enabled and requires stable local signers. It never deploys a contract and records checkpoint/evidence without secrets. It is not a canonical deployment.
 
 ## Supported consumers
 

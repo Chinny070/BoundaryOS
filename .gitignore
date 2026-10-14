@@ -6,5 +6,6 @@ __pycache__/
 .env
 .env.*
 !.env.example
+.boundaryos/
 artifacts/
 *.log

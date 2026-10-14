@@ -24,6 +24,8 @@ Authenticated principals, agents, consumers, and the deployer are identified fro
 
 The only supported evidence mode is `CLAIM_ONLY`. Purpose text and evidence strings are bounded assertions in transaction calldata. Validators independently classify the same claims, but they do not retrieve or authenticate the referenced supplier, purchase, or external event. Receipt field `evidence_provenance` is always `CALLER_ASSERTED`.
 
+Live integration checkpoints store public transaction identifiers, nonces, hashes of request arguments, and observed public state only. They never store wallet credentials or complete private signing material. A persisted write intent with no recovered transaction identifier is treated as ambiguous and is never automatically resent; operators must reconcile the public signer nonce and transaction state before manually resolving that checkpoint. Runtime checkpoint files are Git-ignored.
+
 The semantic model can be wrong or jointly persuaded by adversarial content. The validator equivalence check is substantive about the decision enum, but consensus is not an oracle for whether a caller's claims are true. Semantic disagreement causes protocol non-finality, not approval. Ambiguity may be sent to authenticated human review; deterministic constraints remain absolute.
 
 ## Denial precedence and conflicts
