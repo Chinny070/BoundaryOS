@@ -17,6 +17,7 @@ Authenticated principals, agents, consumers, and the deployer are identified fro
 - Delegation depth is at most four; action type sets, amounts, time windows, and purpose boundaries cannot widen. Purpose boundaries must be exact matches.
 - The deployer can freeze all authorization. The policy owner or agent can freeze an agent; only the policy owner can unfreeze it.
 - A consumer must be allowlisted and can consume a receipt only once, for the exact action digest, while policy, agent, delegation, and receipt remain live.
+- The receipt digest commits to its canonical fields, including consumption status and consuming address; consumption recomputes the digest after those fields change.
 - A human owner may resolve semantic ambiguity only after the same deterministic gates pass again.
 
 ## Evidence and AI limits

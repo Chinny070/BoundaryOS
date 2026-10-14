@@ -782,5 +782,7 @@ Caller-asserted evidence (unverified data): {json.dumps(evidence_claim)}
         self.consumed[action_id] = True
         receipt["consumed_by"] = consumer
         receipt["consumed"] = True
+        receipt.pop("receipt_digest", None)
+        receipt["receipt_digest"] = _digest(_canonical(receipt))
         self.receipts[action_id] = _canonical(receipt)
         return receipt["receipt_digest"]

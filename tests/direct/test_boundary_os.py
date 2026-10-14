@@ -1,4 +1,5 @@
 import json
+import hashlib
 
 import pytest
 
@@ -229,6 +230,18 @@ def test_receipt_consumption_is_consumer_scoped_and_one_time(direct_vm, direct_d
     contract.authorize_consumer("office", address(direct_charlie))
     direct_vm.sender = direct_charlie
     contract.consume_authorization(action_id, receipt["action_digest"])
+    consumed_receipt = json.loads(contract.get_receipt(action_id))
+    expected_digest = hashlib.sha256(
+        json.dumps(
+            {key: value for key, value in consumed_receipt.items() if key != "receipt_digest"},
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    assert consumed_receipt["consumed"] is True
+    assert consumed_receipt["consumed_by"].lower() == address(direct_charlie).lower()
+    assert consumed_receipt["receipt_digest"] == expected_digest
     with direct_vm.expect_revert("authorization is stale, used, expired, or not allowed"):
         contract.consume_authorization(action_id, receipt["action_digest"])
 

@@ -2,7 +2,7 @@
 
 BoundaryOS is a standalone GenLayer Intelligent Contract for checking whether an authenticated agent's proposed action fits a principal's current delegation policy. It combines deterministic permission and quota checks with an independently repeated semantic purpose judgment, then stores an action-bound, version-bound receipt.
 
-**Current state:** the implementation, Direct Mode suite, and GenVM SDK/linter checks are complete locally. A disposable Studionet instance was deployed and its setup transactions finalized; the live authorization flow is blocked by Studionet RPC failures, so there is no verified authorization receipt, canonical deployment, or submission-ready live evidence. See [Deployment](docs/DEPLOYMENT.md) for transaction IDs and the exact status.
+**Current state:** the Direct Mode suite and cached-runner GenVM SDK/linter checks pass locally. A disposable Studionet instance and its setup writes finalized, and its action proposal was independently recovered as finalized after the SDK poll failed. That proposal was not evaluated, so there is still no verified live authorization receipt, canonical deployment, or submission-ready live evidence. A repeat integration attempt stalled before broadcasting (latest and pending signer nonce remained unchanged); see [Deployment](docs/DEPLOYMENT.md) for exact evidence and limitations.
 
 ## What the contract protects
 
