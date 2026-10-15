@@ -26,6 +26,8 @@ The only supported evidence mode is `CLAIM_ONLY`. Purpose text and evidence stri
 
 Live integration checkpoints store public transaction identifiers, nonces, hashes of request arguments, and observed public state only. They never store wallet credentials or complete private signing material. A persisted write intent with no recovered transaction identifier is treated as ambiguous and is never automatically resent; operators must reconcile the public signer nonce and transaction state before manually resolving that checkpoint. Runtime checkpoint files are Git-ignored.
 
+The live Python harness requires stable SDK signing keys supplied through local environment/configuration. CLI account names and public addresses do not provide SDK signing authority. Do not copy or export a CLI wallet key merely to satisfy the harness; until an approved local signer path is configured, it fails closed before broadcasting. The current preflight confirmed CLI accounts but did not make any signing key available to the harness.
+
 The semantic model can be wrong or jointly persuaded by adversarial content. The validator equivalence check is substantive about the decision enum, but consensus is not an oracle for whether a caller's claims are true. Semantic disagreement causes protocol non-finality, not approval. Ambiguity may be sent to authenticated human review; deterministic constraints remain absolute.
 
 ## Denial precedence and conflicts

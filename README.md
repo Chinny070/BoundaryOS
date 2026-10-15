@@ -2,7 +2,7 @@
 
 BoundaryOS is a standalone GenLayer Intelligent Contract for checking whether an authenticated agent's proposed action fits a principal's current delegation policy. It combines deterministic permission and quota checks with an independently repeated semantic purpose judgment, then stores an action-bound, version-bound receipt.
 
-**Current state:** the Direct Mode suite and cached-runner GenVM SDK/linter checks pass locally. A resumable, secret-free Studionet verification harness now checkpoints broadcasts, recovers transaction IDs after interrupted polling, and never automatically redeploys or resends unresolved writes. Existing disposable setup writes and its action proposal finalized, but the action itself expired without evaluation. The current Codex sandbox blocks RPC egress (`WinError 10013`) and the official CLI cannot initialize the existing named-wallet profile because its profile `chmod` is denied. There is no verified live authorization receipt, canonical deployment, or submission-ready live evidence. The cross-repository deployment-path comparison and evidence are in [Reference deployment-path analysis](docs/REFERENCE_DEPLOYMENT_ANALYSIS.md) and [Deployment](docs/DEPLOYMENT.md).
+**Current state:** 28 Direct Mode tests and 5 resumable-harness helper tests pass, as do compileall and the pinned-runner GenVM lint/schema/type checks. The secret-free Studionet harness checkpoints broadcasts, recovers transaction IDs after interrupted polling, and never automatically redeploys or resends unresolved writes. Existing disposable setup writes and its action proposal finalized, but the action expired without evaluation. A new read-only preflight confirmed chain 61999, the active CLI wallet, and a funded secondary account using approved elevated invocations; the integration harness still requires stable SDK signer keys and refuses live writes without them. No live authorization receipt, canonical deployment, or source parity is verified. See [Reference deployment-path analysis](docs/REFERENCE_DEPLOYMENT_ANALYSIS.md) and [Deployment](docs/DEPLOYMENT.md).
 
 ## What the contract protects
 
@@ -54,7 +54,7 @@ Requirements: Python 3.12+, `genlayer-test`, and `genvm-linter`. The contract pi
 ```powershell
 python -m pip install -r requirements.txt
 $env:PYTHONIOENCODING = 'utf-8'
-python -m pytest tests/direct/ -v
+python -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py -q --tb=short
 genvm-lint lint contracts/boundary_os.py
 genvm-lint check contracts/boundary_os.py --json
 genvm-lint typecheck contracts/boundary_os.py

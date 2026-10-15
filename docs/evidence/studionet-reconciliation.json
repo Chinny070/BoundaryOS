@@ -18,6 +18,38 @@
     "writes_broadcast": false
   },
   "network": "studionet",
+  "preflight_recheck": {
+    "observed_at": "2026-10-15T22:23:29.682060+00:00",
+    "rpc_method": "eth_chainId",
+    "rpc_result": "0xf22f",
+    "chain_id": 61999,
+    "access_route": "approved elevated read-only command",
+    "ordinary_process_restrictions": {
+      "network_disabled_environment": true,
+      "rpc_socket_access": "WinError 10013",
+      "cli_profile_initialization": "EPERM chmod %USERPROFILE%\\.genlayer"
+    },
+    "genlayer_cli_version": "0.40.0-rc.3",
+    "network_alias": "studionet",
+    "account_list": "success",
+    "active_wallet_alias": "my-studionet-wallet",
+    "active_public_signer_verified": true,
+    "funded_secondary_signer_available": true,
+    "wallet_key_material_accessed_or_recorded": false,
+    "existing_disposable_inspection": {
+      "result": "passed_read_only",
+      "proposal_transaction": "0x64fe023e2f90c845a5e04054eabe2b3620f08b1b8cbd1f5afb57518ce807ecda",
+      "action_state": "PENDING",
+      "proposal_expired": true,
+      "receipt_present": false
+    },
+    "live_sdk_suite": {
+      "result": "blocked_before_write",
+      "reason": "Stable SDK private-key signers are absent from local gltest configuration; CLI account aliases are not SDK signer credentials."
+    },
+    "writes_broadcast": false,
+    "canonical_deployment_performed": false
+  },
   "prior_action_id_transcription": {
     "length": 65,
     "valid": false,
