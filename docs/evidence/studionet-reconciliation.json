@@ -9,11 +9,12 @@
   },
   "instance_role": "disposable_diagnostic_only",
   "latest_rpc_probe": {
-    "attempts": 5,
     "failure_class": "requests.ConnectionError",
     "method": "eth_chainId",
-    "observed_at": "2026-10-14T22:00:00Z",
-    "result": "blocked",
+    "observed_at": "2026-10-15T22:00:04.232003+00:00",
+    "os_error": "WinError 10013",
+    "process_environment": "CODEX_SANDBOX_NETWORK_DISABLED=1",
+    "result": "blocked_before_http_response",
     "writes_broadcast": false
   },
   "network": "studionet",
@@ -46,6 +47,19 @@
       "0xcE1d6bBB36B744536153966B4DD42276f5ADd0F8": "idle"
     },
     "vm_error_code": null
+  },
+  "reference_path_assessment": {
+    "cli_failure": "EPERM chmod C:\\Users\\USERpc\\.genlayer",
+    "cli_profile_initialized_in_sandbox": false,
+    "details": "docs/REFERENCE_DEPLOYMENT_ANALYSIS.md",
+    "keystore_opened_or_exported": false,
+    "local_cli_profile_active_account": "my-studionet-wallet",
+    "repositories": [
+      "Chinny070/Semantic-Reconciliation-Protocol",
+      "Chinny070/auditlot",
+      "Chinny070/provenanceengine"
+    ],
+    "reviewed_at": "2026-10-15"
   },
   "rpc": "https://studio.genlayer.com/api",
   "schema_version": 1,
