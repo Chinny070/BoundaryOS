@@ -1,4 +1,5 @@
 import json
+import subprocess
 
 import pytest
 
@@ -12,9 +13,12 @@ from studionet_resume import (
     VerificationError,
     classify_rpc_error,
     encode_cli_write_intent,
+    encode_cli_read_arg,
     _consensus_outcome,
     derive_action_id,
+    is_transient_sdk_read_error,
     parse_cli_accounts,
+    scenario_step,
 )
 
 
@@ -91,6 +95,43 @@ def test_cli_sdk_adapter_preserves_typed_string_arguments():
     assert intent["rotations"] == 3
 
 
+def test_cli_read_arguments_preserve_string_address_and_scalar_types():
+    assert encode_cli_read_arg("receipt-id") == "receipt-id"
+    assert encode_cli_read_arg("hello world") == '"hello world"'
+    assert encode_cli_read_arg("0x" + "a" * 40) == "0x" + "a" * 40
+    assert encode_cli_read_arg(19) == "19"
+    assert encode_cli_read_arg(False) == "false"
+
+
+def test_cli_read_parses_the_supported_call_command_result(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    checkpoint = Checkpoint(tmp_path / ".boundaryos" / "checkpoint.json", "0xcontract", "0xsigner", "abc")
+    try:
+        verifier = StudionetVerifier(
+            "0xcontract", checkpoint, type("Account", (), {"address": "0xsigner"})(),
+            type("Client", (), {"provider": type("Provider", (), {"url": "https://example.invalid"})()})(),
+            cli_signing=True,
+        )
+        seen = {}
+
+        def fake_run(command, **kwargs):
+            seen["command"] = command
+            seen["kwargs"] = kwargs
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout='\nResult:\n{"consumed":false}\n√ Read operation successfully executed\n',
+                stderr="",
+            )
+
+        monkeypatch.setattr("studionet_resume.subprocess.run", fake_run)
+        assert verifier._cli_read_once("get_receipt", ["action-id"]) == {"consumed": False}
+        assert seen["command"][-1] == "action-id"
+        assert seen["kwargs"]["timeout"] == 90
+    finally:
+        checkpoint.close()
+
+
 def test_cli_signer_reads_use_sdk_adapter_instead_of_legacy_python_gen_call(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     checkpoint = Checkpoint(tmp_path / ".boundaryos" / "checkpoint.json", "0xcontract", "0xsigner", "abc")
@@ -123,3 +164,53 @@ def test_consensus_failure_is_not_mislabeled_as_contract_execution():
     assert _consensus_outcome({"result": 1}) == "MAJORITY_AGREE"
     assert _consensus_outcome({"result": 6}) is None
     assert issubclass(ConsensusFailure, RuntimeError)
+
+
+def test_cli_sdk_read_retries_only_recognized_transient_service_errors(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    checkpoint = Checkpoint(tmp_path / ".boundaryos" / "checkpoint.json", "0xcontract", "0xsigner", "abc")
+    try:
+        verifier = StudionetVerifier(
+            "0xcontract", checkpoint, type("Account", (), {"address": "0xsigner"})(),
+            type("Client", (), {"provider": type("Provider", (), {"url": "https://example.invalid"})()})(),
+            cli_signing=True,
+        )
+        attempts = []
+
+        def transient_then_success(_method, _args):
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise RpcFailure("GenLayer SDK read get_agent failed (UnknownRpcError, code=-1)")
+            return {"registered": True}
+
+        monkeypatch.setattr(verifier, "_cli_read_once", transient_then_success)
+        monkeypatch.setattr("studionet_resume.time.sleep", lambda _delay: None)
+        assert verifier._cli_read("get_agent", ["0xsigner"]) == {"registered": True}
+        assert len(attempts) == 2
+
+        attempts.clear()
+
+        def invalid_call(_method, _args):
+            attempts.append(1)
+            raise RpcFailure("GenLayer SDK read failed (InvalidInputRpcError, code=-32000)")
+
+        monkeypatch.setattr(verifier, "_cli_read_once", invalid_call)
+        with pytest.raises(RpcFailure, match="InvalidInputRpcError"):
+            verifier._cli_read("get_agent", ["0xsigner"])
+        assert len(attempts) == 1
+    finally:
+        checkpoint.close()
+
+
+def test_sdk_read_error_classifier_does_not_retry_contract_or_argument_errors():
+    assert is_transient_sdk_read_error("UnknownRpcError code=-1")
+    assert is_transient_sdk_read_error("HTTP status code 502 Bad Gateway")
+    assert not is_transient_sdk_read_error("InvalidInputRpcError code=-32000")
+    assert not is_transient_sdk_read_error("contract execution reverted")
+    assert is_transient_sdk_read_error("Windows status 0xC0000409 (3221226505)")
+
+
+def test_expired_scenario_retries_receive_distinct_checkpoints():
+    assert scenario_step("semantic_match", "submit", 1) == "semantic_match.submit"
+    assert scenario_step("semantic_match", "submit", 2) == "semantic_match.submit.nonce-2"
+    assert scenario_step("semantic_match", "evaluate", 2) == "semantic_match.evaluate.nonce-2"

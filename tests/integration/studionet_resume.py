@@ -150,6 +150,28 @@ def encode_cli_write_intent(contract: str, method: str, args: list[Any], rotatio
     )
 
 
+def encode_cli_read_arg(value: Any) -> str:
+    """Encode one typed argument for the official CLI call parser."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return "null"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, str):
+        if re.fullmatch(r"0x[a-fA-F0-9]{40}", value):
+            return value
+        if (
+            re.fullmatch(r"-?\d+", value)
+            or re.fullmatch(r"0x[a-fA-F0-9]+", value)
+            or value.lower() in {"true", "false", "null"}
+            or any(char.isspace() for char in value)
+        ):
+            return json.dumps(value, ensure_ascii=True)
+        return value
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=True)
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -165,6 +187,12 @@ def derive_action_id(policy_id: str, agent_address: str, nonce: int, action_json
     normalized_address = to_checksum_address(agent_address)
     preimage = f"{policy_id}|{normalized_address}|{int(nonce)}|{action_digest}"
     return hashlib.sha256(preimage.encode("utf-8")).hexdigest()
+
+
+def scenario_step(label: str, operation: str, nonce: int) -> str:
+    """Keep recovered writes distinct when an expired scenario gets a fresh nonce."""
+    suffix = "" if nonce == 1 else f".nonce-{nonce}"
+    return f"{label}.{operation}{suffix}"
 
 
 def classify_rpc_error(error: dict[str, Any]) -> str:
@@ -197,6 +225,29 @@ def _consensus_outcome(tx: dict[str, Any]) -> str | None:
             5: "NO_MAJORITY",
         }.get(value)
     return None
+
+
+def is_transient_sdk_read_error(error: str) -> bool:
+    """Return true only for recognized transport/service failures, not bad calls."""
+    lowered = error.lower()
+    return any(
+        marker in lowered
+        for marker in (
+            "unknownrpcerror",
+            "badgateway",
+            "serviceunavailable",
+            "too many requests",
+            "status code 502",
+            "status code 503",
+            "status code 504",
+            "econnreset",
+            "etimedout",
+            "0xc0000409",
+            "3221226505",
+            "timed out",
+            "connection reset",
+        )
+    )
 
 
 class Checkpoint:
@@ -347,91 +398,67 @@ class StudionetVerifier:
             raise RpcFailure(f"gen_call result decode failed: {type(exc).__name__}: {exc}") from exc
 
     def _cli_read(self, method: str, args: list[Any]) -> Any:
-        """Use the installed GenLayer SDK's supported read path for CLI signers.
-
-        This avoids the legacy Python ABI/RLP read encoding that Studionet has
-        rejected, while retaining a finalized-state read and the same account
-        selection discipline as writes. The CLI process output is parsed only
-        for the explicit JSON marker; other output is never journaled.
-        """
-        workflow_root = Path(".boundaryos") / "cli-workflows"
-        workflow_root.mkdir(parents=True, exist_ok=True)
-        workflow_dir = Path(tempfile.mkdtemp(prefix="read-", dir=workflow_root))
-        selected = False
-        try:
-            (workflow_dir / "package.json").write_text('{"type":"module"}\n', encoding="utf-8")
-            deploy_dir = workflow_dir / "deploy"
-            deploy_dir.mkdir()
-            script = """export default async function (client) {
-  const payload = JSON.parse(process.env.BOUNDARYOS_CLI_READ_INTENT || "null");
-  if (!payload || !Array.isArray(payload.args)) throw new Error("missing read intent");
-  try {
-    const value = await client.readContract({
-      address: payload.contract,
-      functionName: payload.method,
-      args: payload.args,
-      // The 0.39.1 CLI's supported read default is latest-nonfinal. The
-      // current Studionet RPC returns malformed RLP for latest-final, while
-      // finalized transaction evidence is independently reconciled below.
-    });
-    console.log("BoundaryOS read result:", JSON.stringify({ok: true, value}, (_, item) =>
-      typeof item === "bigint" ? item.toString() : item));
-  } catch (error) {
-    console.log("BoundaryOS read result:", JSON.stringify({
-      ok: false,
-      name: error?.name || "Error",
-      code: error?.code || null,
-      message: error?.shortMessage || error?.message || "read failed",
-    }));
-  }
-}
-"""
-            (deploy_dir / "01_boundaryos_read.js").write_text(script, encoding="utf-8")
-            if self.cli_active_account:
-                _cli_run("account", "use", self.cli_active_account)
-                selected = True
-            process_env = os.environ.copy()
-            process_env["BOUNDARYOS_CLI_READ_INTENT"] = json.dumps(
-                {"contract": self.contract, "method": method, "args": args},
-                separators=(",", ":"),
-            )
+        delay = 1.0
+        for attempt in range(RETRY_LIMIT):
             try:
-                result = subprocess.run(
-                    _genlayer_command("deploy"),
-                    cwd=workflow_dir,
-                    env=process_env,
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    timeout=180,
-                    check=False,
+                return self._cli_read_once(method, args)
+            except RpcFailure as exc:
+                if not is_transient_sdk_read_error(str(exc)) or attempt + 1 >= RETRY_LIMIT:
+                    raise
+                self.emit(
+                    "read_transport_retry",
+                    method=method,
+                    attempt=attempt + 1,
+                    limit=RETRY_LIMIT,
+                    error_class=type(exc).__name__,
                 )
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                raise TransportFailure(f"CLI read {method} failed ({type(exc).__name__})") from exc
-            if result.returncode != 0:
-                raise RpcFailure(f"GenLayer SDK read {method} exited with code {result.returncode}")
-            marker = "BoundaryOS read result:"
-            for line in result.stdout.splitlines():
-                if marker in line:
-                    raw = line.split(marker, 1)[1].strip()
-                    try:
-                        parsed = json.loads(raw)
-                        if isinstance(parsed, dict) and parsed.get("ok") is False:
-                            raise RpcFailure(
-                                f"GenLayer SDK read {method} failed ({parsed.get('name')}, "
-                                f"code={parsed.get('code')}, message={str(parsed.get('message', ''))[:180]})"
-                            )
-                        if isinstance(parsed, dict) and parsed.get("ok") is True:
-                            return parsed.get("value")
-                        return parsed
-                    except json.JSONDecodeError as exc:
-                        raise RpcFailure(f"GenLayer SDK read {method} returned invalid JSON") from exc
-            raise RpcFailure(f"GenLayer SDK read {method} produced no result marker")
-        finally:
-            if selected and self.cli_active_account:
-                _cli_run("account", "use", self.cli_active_account)
-            shutil.rmtree(workflow_dir, ignore_errors=True)
+                time.sleep(delay)
+                delay = min(delay * 2, 8.0)
+        raise TransportFailure(f"CLI read {method} exhausted bounded retries")
+
+    def _cli_read_once(self, method: str, args: list[Any]) -> Any:
+        """Read through GenLayer CLI's documented, non-mutating ``call`` command.
+
+        This avoids the legacy Python ABI/RLP read encoding and the deploy-script
+        SDK read path that returned invalid-parameter errors on Studionet. CLI
+        argument encoding keeps addresses distinct from quoted strings.
+        """
+        command = _genlayer_command("call", self.contract, method, "--rpc", self.rpc_url)
+        if args:
+            command.extend(["--args", *(encode_cli_read_arg(value) for value in args)])
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=90,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise RpcFailure(f"GenLayer CLI read {method} transport failed ({type(exc).__name__})") from exc
+        output = (result.stdout or "") + "\n" + (result.stderr or "")
+        if result.returncode != 0:
+            lowered = output.lower()
+            if result.returncode == 3221226505:
+                raise RpcFailure(f"GenLayer CLI read {method} process terminated abnormally (Windows status 0xC0000409)")
+            if any(token in lowered for token in ("unknownrpcerror", "502", "503", "504", "bad gateway", "timed out", "econnreset", "too many requests")):
+                classification = next(
+                    (token for token in ("UnknownRpcError", "502", "503", "504", "Bad Gateway", "timed out", "ECONNRESET", "too many requests") if token.lower() in lowered),
+                    "transient RPC/service error",
+                )
+                raise RpcFailure(f"GenLayer CLI read {method} transient failure ({classification})")
+            raise RpcFailure(f"GenLayer CLI read {method} failed (exit code {result.returncode})")
+        marker = "Result:"
+        if marker not in output:
+            raise RpcFailure(f"GenLayer CLI read {method} returned no result marker")
+        payload = output.split(marker, 1)[1].strip()
+        try:
+            value, _end = json.JSONDecoder().raw_decode(payload)
+            return value
+        except json.JSONDecodeError as exc:
+            raise RpcFailure(f"GenLayer CLI read {method} returned invalid JSON") from exc
 
     def tx_record(self, tx_id: str) -> dict[str, Any]:
         status = self.rpc("gen_getTransactionStatus", [tx_id])
@@ -1390,9 +1417,36 @@ def run_live_suite(
         aid = record["action_id"]
         action_state = _as_json(verifier.read("get_action", [aid]))
         receipt_value = _as_json(verifier.read("get_receipt", [aid]))
+        if (
+            consume
+            and isinstance(receipt_value, dict)
+            and receipt_value.get("decision") == "ALLOW"
+            and not receipt_value.get("consumed")
+            and int(receipt_value.get("expires_at", 0)) <= int(time.time())
+        ):
+            record.setdefault("expired_receipt_attempts", []).append(
+                {
+                    "action_id": aid,
+                    "nonce": record["nonce"],
+                    "expires_at": receipt_value.get("expires_at"),
+                    "decision": receipt_value.get("decision"),
+                    "receipt_digest": receipt_value.get("receipt_digest"),
+                }
+            )
+            next_nonce = max(
+                int(verifier.checkpoint.data.get("last_action_nonce") or 0), int(record["nonce"])
+            ) + 1
+            aid = derive_action_id(policy_id, signer_address, next_nonce, action_json)
+            if _as_json(verifier.read("get_action", [aid])) or _as_json(verifier.read("get_receipt", [aid])):
+                raise VerificationError(f"{label}: fresh nonce {next_nonce} already exists on chain; refusing reuse")
+            record.update({"nonce": next_nonce, "action_id": aid, "created_at": _now()})
+            record.pop("result", None)
+            verifier.checkpoint.save()
+            action_state = None
+            receipt_value = None
         if not action_state:
             verifier.write_once(
-                f"{label}.submit",
+                scenario_step(label, "submit", int(record["nonce"])),
                 "submit_action",
                 [policy_id, int(record["nonce"]), action_json],
                 max_polls=max_polls,
@@ -1442,13 +1496,13 @@ def run_live_suite(
                 agent_state = _as_json(verifier.read("get_agent", [signer_address]))
                 if not agent_state.get("frozen"):
                     verifier.write_once(
-                        f"{label}.freeze",
+                        scenario_step(label, "freeze", int(record["nonce"])),
                         "freeze_agent",
                         [signer_address, True],
                         max_polls=max_polls,
                     )
             verifier.write_once(
-                f"{label}.evaluate",
+                scenario_step(label, "evaluate", int(record["nonce"])),
                 "evaluate_action",
                 [aid],
                 rotations=5,
@@ -1489,7 +1543,7 @@ def run_live_suite(
             fresh = verifier.read("can_consume_authorization", [aid, signer_address])
             if fresh is True:
                 verifier.write_once(
-                    f"{label}.consume",
+                    scenario_step(label, "consume", int(record["nonce"])),
                     "consume_authorization",
                     [aid, receipt_value["action_digest"]],
                     max_polls=max_polls,
@@ -1497,7 +1551,7 @@ def run_live_suite(
             consumed = _as_json(verifier.read("get_receipt", [aid]))
             if not isinstance(consumed, dict) or consumed.get("consumed") is not True:
                 raise VerificationError(f"{label}: finalized consumption not reflected in receipt state")
-            replay_step = f"{label}.replay"
+            replay_step = scenario_step(label, "replay", int(record["nonce"]))
             verifier.write_once(
                 replay_step,
                 "consume_authorization",
@@ -1515,7 +1569,7 @@ def run_live_suite(
             state = _as_json(verifier.read("get_agent", [signer_address]))
             if state.get("frozen"):
                 verifier.write_once(
-                    f"{label}.unfreeze",
+                    scenario_step(label, "unfreeze", int(record["nonce"])),
                     "freeze_agent",
                     [signer_address, False],
                     max_polls=max_polls,

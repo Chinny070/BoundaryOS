@@ -1,0 +1,173 @@
+{
+  "canonical_contract": "0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF",
+  "canonical_instance_scenario_coverage": [
+    "agent registration",
+    "policy creation",
+    "consumer authorization",
+    "semantic ALLOW/MATCH",
+    "valid receipt readback"
+  ],
+  "canonical_smoke": {
+    "blocked_at": "2026-10-16T09:46:29.093102+00:00",
+    "consume_intent": {
+      "cli_exit_code": 1,
+      "latest_block_scan": {
+        "block": "0x6ad1f4d6",
+        "matching_sender_nonce_transactions": 0
+      },
+      "latest_nonce": 2624,
+      "outer_tx_hash": null,
+      "pending_nonce": 2624,
+      "phase": "broadcast_unknown",
+      "reserved_nonce": 2624,
+      "transaction_pool_rpc": "unsupported by Studionet RPC",
+      "tx_id": null
+    },
+    "decision": "ALLOW",
+    "evidence_provenance": "CALLER_ASSERTED",
+    "reason": "CLI write returned no transaction hash. Checkpoint records no outer or GenLayer transaction ID. Reconciliation observed latest nonce 2624 and pending nonce 2624; a read-only scan of latest block 0x6ad1f4d6 found no transaction by this signer at nonce 2624. txpool_content is not supported. No resend was attempted. The ALLOW receipt expired at 2026-10-16T09:48:43Z before the ambiguity could be safely resolved.",
+    "receipt_consume": "unresolved_broadcast; not claimed successful",
+    "receipt_digest": "1b6a73e4c35f3299efaf297d30cc4740724778af46c997f2a962c86b5706c85a",
+    "receipt_digest_valid": true,
+    "receipt_readback": {
+      "action_id": "56d9d3de0357987a26195251fbde3d7692fb9dc73bde21878dd309072ff2ee62",
+      "consumed_field": "absent (receipt creation does not set consumed until successful consumption)",
+      "decision": "ALLOW",
+      "evidence_provenance": "CALLER_ASSERTED",
+      "expires_at_utc": "2026-10-16T09:48:43Z",
+      "receipt_digest": "1b6a73e4c35f3299efaf297d30cc4740724778af46c997f2a962c86b5706c85a",
+      "receipt_digest_valid": true,
+      "semantic_fit": "MATCH"
+    },
+    "semantic_fit": "MATCH",
+    "semantic_match_action_id": "56d9d3de0357987a26195251fbde3d7692fb9dc73bde21878dd309072ff2ee62",
+    "semantic_match_nonce": 2,
+    "setup_and_semantic_match": true,
+    "status": "partial"
+  },
+  "chain_id": 61999,
+  "contract_source_sha256": "15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17",
+  "deployment": {
+    "consensus": "MAJORITY_AGREE",
+    "execution": "SUCCESS",
+    "explorer_transaction_url": "https://explorer-studio.genlayer.com/tx/0x8159a551d133d3a915d532a82cebdb8864233fde7bc8c8595805761193e1c88e",
+    "nonce": 2616,
+    "status": "FINALIZED",
+    "tx_id": "0x8159a551d133d3a915d532a82cebdb8864233fde7bc8c8595805761193e1c88e",
+    "validator_vote_counts": {
+      "agree": 5
+    }
+  },
+  "deployment_source_commit": "2e918135669a98de6e7c32a30c288a69a7ea0c2f",
+  "equivalent_corrected_source_diagnostic_coverage": "The complete live scenario matrix passed on corrected-source diagnostic instance 0x2A63fEA23FC0D81D17aC9516Ed4Dd169dc9aa9D8. See studionet-fixed-diagnostic.json. This separate instance is noncanonical.",
+  "explorer_page_inspection": "The direct Explorer transaction URL is recorded above. The web search/open integration did not expose that specific transaction page during verification; Explorer UI status is not represented as independently inspected.",
+  "network": "GenLayer Studionet",
+  "not_verified_on_canonical_instance": [
+    "successful receipt consumption",
+    "replay rejection",
+    "semantic mismatch",
+    "deterministic hard denial",
+    "policy revocation",
+    "agent freeze",
+    "delegation restriction",
+    "aggregate quota"
+  ],
+  "schema_version": 1,
+  "signing_material": "Existing named CLI wallets; no key or keystore content read/exported/recorded.",
+  "source_parity": {
+    "comparison": "Retrieved result body matched committed contracts/boundary_os.py byte-for-byte after stripping the CLI-added leading/trailing newlines.",
+    "local_sha256": "15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17",
+    "normalized_match": true,
+    "retrieval_command": "genlayer code 0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF --rpc https://studio.genlayer.com/api",
+    "retrieval_succeeded": true,
+    "retrieved_body_sha256_without_cli_newline_wrapper": "f89204c87887f986e997f3f61884ce2a95e6c12540b2cbd9425d3ff7edfbbd0e"
+  },
+  "transaction_records": [
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "evaluate_action",
+      "nonce": 2621,
+      "status": "FINALIZED",
+      "step": "semantic_match.evaluate",
+      "tx_id": "0x6e833925350e81e43e20798c3f4dab7b0d1c3cbdf5e2955915f9282a0e38ceae",
+      "validator_vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "evaluate_action",
+      "nonce": 2623,
+      "status": "FINALIZED",
+      "step": "semantic_match.evaluate.nonce-2",
+      "tx_id": "0x3459cf7738fda09493e23598c2478e49225dfc51fc9c94961a59ae566f841515",
+      "validator_vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "submit_action",
+      "nonce": 2620,
+      "status": "FINALIZED",
+      "step": "semantic_match.submit",
+      "tx_id": "0xcfaf3177388d9ded1e71714ab0ad58f99f8be98aa8eca8205730ded769e2fb5f",
+      "validator_vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "submit_action",
+      "nonce": 2622,
+      "status": "FINALIZED",
+      "step": "semantic_match.submit.nonce-2",
+      "tx_id": "0x63dbd820566273d7b5c563a66f85bdbc5e8d7fd2f805561e214d86365ff74387",
+      "validator_vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "authorize_consumer",
+      "nonce": 2619,
+      "status": "FINALIZED",
+      "step": "setup.authorize_consumer",
+      "tx_id": "0xf7f51499c74915e5c142737c769d202775b137f7baf6e21bae32f4ec5296a4c2",
+      "validator_vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "create_policy",
+      "nonce": 2618,
+      "status": "FINALIZED",
+      "step": "setup.create_policy",
+      "tx_id": "0xed94ea8d4ce5fe0e5cd7fd69a0a2f04a6643ecbf037f15448ccc781966508790",
+      "validator_vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "register_agent",
+      "nonce": 2617,
+      "status": "FINALIZED",
+      "step": "setup.register_agent",
+      "tx_id": "0xfb05f68e8b3da0896528354e3c3864c0fb0f361dc31f50593332d943c15da4c1",
+      "validator_vote_counts": {
+        "agree": 5
+      }
+    }
+  ]
+}

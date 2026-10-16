@@ -4,7 +4,30 @@
 
 The target is GenLayer Studionet, chain ID `61999`, RPC `https://studio.genlayer.com/api`. The installed GenLayer CLI `0.39.1` supports account selection, typed SDK deploy scripts, contract reads, and `code <address>`. The supported CLI account flow signs through the user's existing named wallet; this project never opens, copies, exports, logs, or commits wallet keys or keystore contents. The primary and secondary names used for this verification are `my-studionet-wallet` and `bradbury-e2e`.
 
-The live harness in [studionet_resume.py](../tests/integration/studionet_resume.py) persists write intent, expected nonce, outer transaction hash, recovered GenLayer transaction ID, finality, votes, and execution result. On resume it reconciles known broadcasts and checks latest/pending nonce before new writes. It does not automatically resend an ambiguous write or redeploy during a scenario suite. The CLI deploy adapter is a separate explicit command with an independently bound deployment checkpoint.
+The live harness in [studionet_resume.py](../tests/integration/studionet_resume.py) persists write intent, expected nonce, outer transaction hash, recovered GenLayer transaction ID, finality, votes, and execution result. On resume it reconciles known broadcasts and checks latest/pending nonce before new writes. It does not automatically resend an ambiguous write or redeploy during a scenario suite. Writes and deployments use CLI deploy scripts with typed SDK arguments; read-only calls use the documented `genlayer call` CLI command. The CLI deploy adapter is a separate explicit command with an independently bound deployment checkpoint.
+
+## Canonical deployment
+
+The canonical instance was deployed from the contract source committed at `2e918135669a98de6e7c32a30c288a69a7ea0c2f`. The later changes in the final Git commit update only the test harness and evidence/docs; the contract file and its SHA-256 remain unchanged.
+
+| Evidence | Verified value |
+|---|---|
+| Canonical Studionet address | `0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF` |
+| Deployment transaction | `0x8159a551d133d3a915d532a82cebdb8864233fde7bc8c8595805761193e1c88e` |
+| Sender nonce | `2616` |
+| Status / consensus / VM | `FINALIZED` / `MAJORITY_AGREE` / `SUCCESS` |
+| Validator votes | 5 agree |
+| Contract file SHA-256 | `15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17` |
+| Deployed-source parity | `genlayer code` retrieved the deployed source; its body exactly matched the committed file after removing only CLI-added leading/trailing newlines. |
+| Explorer transaction | [Open the deployment transaction](https://explorer-studio.genlayer.com/tx/0x8159a551d133d3a915d532a82cebdb8864233fde7bc8c8595805761193e1c88e). The direct URL is provided, but this session's web/Explorer integration did not expose that specific transaction detail page for independent visual inspection. |
+
+The canonical deployment setup writes finalized successfully: registration `0xfb05f68e8b3da0896528354e3c3864c0fb0f361dc31f50593332d943c15da4c1` (nonce 2617), policy creation `0xed94ea8d4ce5fe0e5cd7fd69a0a2f04a6643ecbf037f15448ccc781966508790` (nonce 2618), and consumer authorization `0xf7f51499c74915e5c142737c769d202775b137f7baf6e21bae32f4ec5296a4c2` (nonce 2619). Each was `FINALIZED`, `MAJORITY_AGREE`, VM `SUCCESS`.
+
+The canonical semantic smoke submitted action `ddf61a09daafb008fdc845d49bafa5c8b26f84009f7165971922ebd3d16a933f` (nonce 1) and finalized an `ALLOW/MATCH` with a valid receipt. That five-minute receipt expired while resolving a temporary read failure, so the resumable harness created a fresh proposal at nonce 2, `56d9d3de0357987a26195251fbde3d7692fb9dc73bde21878dd309072ff2ee62`. Its submit transaction `0x63dbd820566273d7b5c563a66f85bdbc5e8d7fd2f805561e214d86365ff74387` (nonce 2622) and evaluation transaction `0x3459cf7738fda09493e23598c2478e49225dfc51fc9c94961a59ae566f841515` (nonce 2623) both finalized with `MAJORITY_AGREE` and VM `SUCCESS`; finalized readback again returned `ALLOW/MATCH`, `CALLER_ASSERTED`, and a valid receipt digest.
+
+The following consume intent reserved signer nonce 2624. The CLI process exited without returning a transaction hash, and the checkpoint contains no outer or GenLayer transaction ID. Reconciliation observed latest/pending nonce both `2624`; a read-only scan of latest block `0x6ad1f4d6` found no transaction from the signer at that nonce. The RPC does not support `txpool_content`, so the harness cannot prove whether the write was ever broadcast or dropped. The receipt is now expired and no replay/consumption result is claimed for the canonical instance. The harness did not resend this non-idempotent operation. The canonical scenario matrix is therefore **partial** pending authoritative reconciliation of nonce 2624; do not describe canonical smoke as complete.
+
+Canonical transaction and state facts are recorded in [studionet-canonical-release.json](evidence/studionet-canonical-release.json). Complete scenario verification on the same corrected source, including successful one-time consumption and expected replay rejection, was independently completed on the noncanonical diagnostic instance below.
 
 ## Corrected-source diagnostic deployment
 
@@ -48,31 +71,22 @@ The earlier instance `0xe5bcECDE0F002E78fa6A9271519d42e81D643d94`, deployed by `
 
 - Chain ID `61999`, account access, signing with both named accounts, reads, and deployment worked through the supported GenLayer CLI 0.39.1.
 - CLI 0.40.0-rc.3 attempted the unsupported `sim_getFeeConfig` request and produced a finalized `NO_MAJORITY`; it was not used for the successful live suite.
-- Legacy Python `gen_call` read encoding returned an RLP decoding error. The supported SDK read path through the CLI was used during the live suite. A later standalone read probe against the same instance returned `InvalidInputRpcError` for each queried method, so those repeated manual probes are not counted as new state evidence; the suite's assertions and readbacks were completed before that probe.
+- Legacy Python `gen_call` read encoding returned an RLP decoding error. The earlier diagnostic full suite's readbacks succeeded through the CLI SDK. The supported `genlayer call` command has also returned canonical receipt data. In this canonical resume attempt the CLI subprocess intermittently exited with Windows status `0xC0000409` or RPC `504`; the harness now retries only recognized transient failures with a bound, and non-transient invalid-parameter errors remain fail-closed.
 - Cloudflare 502 and Windows `WinError 10013` were transient/environmental issues. The resumable process recovered from polling nonfinal states without duplicate broadcast. Latest-runner cache extraction is blocked by Windows `WinError 5`; lint/schema/type validation used the runner already cached for the contract's pinned SDK hash. The latest runner is not claimed validated.
 - One CLI generic `write --args` route coerced structured string arguments incorrectly and finalized with VM `ERROR`. It is excluded from passing contract tests. The harness instead uses the supported CLI SDK deploy-script path with JSON-preserved typed arguments.
 
 ## Local validation
 
-Verified after the frozen-agent defect fix:
+Verified after the frozen-agent defect fix and resumable CLI read changes:
 
 | Command | Result |
 |---|---|
-| `python -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py -q --tb=short` | **39 passed** |
+| `python -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py -q --tb=short` | **44 passed** |
 | `python -m compileall -q contracts tests` | **Passed** |
 | `genvm-lint lint contracts/boundary_os.py` | **Passed, 3 checks** |
 | `genvm-lint check contracts/boundary_os.py --json` | **Passed, 22 methods (8 views, 14 writes);** warning notes a newer uncached runner. |
 | `genvm-lint typecheck contracts/boundary_os.py` | **Passed, no type errors** |
 
-## Canonical release
+## Readiness
 
-The canonical release remains pending until a committed source revision is deployed and all of the following are recorded with verifiable evidence:
-
-1. Hash the committed contract bytes and deploy that exact source through the checkpointed `--deploy-source` CLI path.
-2. Reconcile the deployment transaction through `FINALIZED`, `MAJORITY_AGREE`, and successful execution; record its address and transaction identifier.
-3. Run the explicit live scenario suite against the canonical address, or an equivalent release smoke flow, and read the resulting state after finality.
-4. Retrieve source using `genlayer code <address>` and compare the normalized retrieved source bytes with the committed contract file.
-5. Verify and record the Explorer address and deployment transaction evidence.
-6. Commit the final evidence and docs; push `main` without rewriting history.
-
-Until those gates are met, the diagnostic deployment must remain labeled noncanonical and the project must not be described as submission-ready.
+The contract source is deployed canonically and source parity is verified. The corrected-source diagnostic instance passed the complete live scenario suite. The canonical instance has finalized setup and semantic match/readback, but receipt consumption is ambiguous at sender nonce 2624 and the canonical suite did not progress beyond that point. Explorer's exact transaction page also was not independently inspected through this session's browser/search integration. The project remains **not submission-ready** until the consume intent is authoritatively reconciled and required canonical smoke evidence is completed without duplicate submission, and Explorer evidence is inspected or otherwise independently confirmed.
