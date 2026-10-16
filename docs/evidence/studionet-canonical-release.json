@@ -139,6 +139,102 @@
     }
   ],
   "chain_id": 61999,
+  "consensus_diagnosis": {
+    "observed_at_utc": "2026-10-16T17:54:00Z",
+    "canonical_writes_paused": true,
+    "failed_transactions": [
+      "0xf181be01aa857eb5a1bb79a815bf7f3a6799d6640094b641d38ec55c6a5e0d00",
+      "0xecca4eb187bd333ba3acd5f686a03f7d020c0bf1e9b26e3168d6be5dfd4c9de4",
+      "0xb43ba53769ddd970150dcf16d52d875978bf3ad679914b2bdd72ef376d0e6a04"
+    ],
+    "failed_transaction_record": {
+      "evm_receipt_status": "0x1",
+      "evm_destination": "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575",
+      "legacy_evm_gas_limit": 1000000,
+      "effective_gas_price": "0x0",
+      "outer_calldata_selector": "0x35a251fb",
+      "outer_calldata_bytes": 1060,
+      "genlayer_status": "FINALIZED",
+      "consensus": "NO_MAJORITY",
+      "rounds": 0,
+      "validators": [],
+      "votes": [],
+      "execution_result": null,
+      "derived_action_and_receipt_state": "absent at LATEST_FINAL"
+    },
+    "successful_prior_submission_comparison": {
+      "transaction_ids": [
+        "0xcfaf3177388d9ded1e71714ab0ad58f99f8be98aa8eca8205730ded769e2fb5f",
+        "0x63dbd820566273d7b5c563a66f85bdbc5e8d7fd2f805561e214d86365ff74387"
+      ],
+      "outer_calldata_selector": "0x27241a99",
+      "outer_calldata_bytes": "not retained in prior evidence",
+      "genlayer_status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "rounds": 1,
+      "revealed_votes": 5,
+      "execution_result": "SUCCESS"
+    },
+    "submission_path": {
+      "failed_cli_version": "0.40.0-rc.3",
+      "failed_path": "CLI deploy-script SDK client.writeContract using fee-aware ADD_TRANSACTION_ABI_WITH_FEES; harness omitted fees",
+      "decoded_fee_configuration": "all fee distribution amounts/caps zero; transaction deposit/value zero",
+      "fee_rpc_methods": {
+        "sim_getFeeConfig": "-32601 Method not found",
+        "sim_estimateTransactionFees": "-32601 Method not found"
+      },
+      "legacy_cli_version": "0.39.1 (official npm package, isolated; no scripts run)",
+      "legacy_abi": "old addTransaction(address,address,uint256,uint256,bytes), selector 0x27241a99; matches prior successful writes",
+      "legacy_signer_status": "my-studionet-wallet reports locked in isolated CLI; no unlock performed and no credential accessed",
+      "prior_successful_matrix_exact_cli_version": "not retained; cannot assert which CLI produced prior writes"
+    },
+    "network_comparison": {
+      "rpc_chain_id": "0xf22f (61999)",
+      "recent_unrelated_transactions": [
+        {
+          "tx_id": "0x9b9bf160043ae387bed63b940db920e6868e39e798c8901c4f747128499b5279",
+          "observed_at_utc": "2026-10-16T17:53:33Z",
+          "status": "FINALIZED",
+          "consensus": "MAJORITY_AGREE",
+          "rounds": 1,
+          "revealed_votes": 5
+        },
+        {
+          "tx_id": "0xc5ffd7c17837f2df65008fea0844d56dafbb365eb539f1925a20a878874a0544",
+          "observed_at_utc": "2026-10-16T17:52:59Z",
+          "status": "FINALIZED",
+          "consensus": "MAJORITY_AGREE",
+          "rounds": 1,
+          "revealed_votes": 5
+        }
+      ],
+      "interpretation": "Studionet was processing unrelated Intelligent Contract consensus at the observation time; this rules out a complete network-wide validator outage for those transactions, not a contract-, payload-, fee-, or transaction-specific failure.",
+      "diagnostic_writes_sent": 0
+    },
+    "nonce_observation": {
+      "primary_latest": 2633,
+      "primary_pending": 2633,
+      "observed_at_utc": "2026-10-16T18:07:00Z",
+      "interpretation": "Nonce equality is only a current count observation and does not independently resolve historical broadcasts. No new writes were submitted during this diagnosis."
+    },
+    "source_parity_recheck": {
+      "frozen_commit": "2e918135669a98de6e7c32a30c288a69a7ea0c2f",
+      "local_contract_sha256": "15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17",
+      "official_cli_code_read": "retrieved deployed body matched the frozen committed source byte-for-byte after stripping only CLI-added outer newlines",
+      "contract_modified": false
+    },
+    "cause_assessment": {
+      "finding": "The three transactions were not executed by the VM and were not contract denials. Their payloads used the fee-aware 0.40 ABI while declaring zero fees; the earlier successful writes used the older ABI. Recent unrelated Studionet transactions reached validator rounds and majority finality.",
+      "most_supported_hypothesis": "CLI/protocol compatibility or fee-payload handling regression introduced by the fee-aware submission path",
+      "not_proven": "The RPC does not expose the fee-configuration or lifecycle-detail methods, and no sanitized validator failure reason is available. Evidence does not prove that zero fees alone caused zero rounds.",
+      "other_hypotheses_not_excluded": ["transaction-specific protocol handling", "validator selection or activation edge case", "unobserved submission-client behavior"]
+    },
+    "read_only_rpc_limitations": {
+      "gen_getTransactionReceipt": "-32601 Method not found",
+      "gen_getTransactionLifecycle": "-32601 Method not found",
+      "fee_configuration_and_estimation": "-32601 Method not found"
+    }
+  },
   "contract_source_sha256": "15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17",
   "deployment": {
     "consensus": "MAJORITY_AGREE",
