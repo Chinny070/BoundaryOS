@@ -23,6 +23,22 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements.txt
       - run: python -m compileall -q contracts tests scripts
+      - name: Cache the contract-pinned Direct Mode runner
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/gltest-direct/genvm-universal-v0.2.16.tar.xz
+          key: genvm-direct-v0.2.16-4f0b358ec98ec148be9b95cdfb0f0e1a6cbe64da0194fdfac3fffc6f5d1d93e2
+      - name: Verify the official pinned GenVM runner bundle
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.cache/gltest-direct"
+          archive="$HOME/.cache/gltest-direct/genvm-universal-v0.2.16.tar.xz"
+          if [ ! -f "$archive" ]; then
+            curl --fail --location --retry 3 --retry-all-errors \
+              "https://github.com/genlayerlabs/genvm/releases/download/v0.2.16/genvm-universal.tar.xz" \
+              --output "$archive"
+          fi
+          echo '4f0b358ec98ec148be9b95cdfb0f0e1a6cbe64da0194fdfac3fffc6f5d1d93e2  '"$archive" | sha256sum --check --status
       - run: python -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py -q --tb=short
       - run: genvm-lint lint contracts/boundary_os.py
       - run: genvm-lint check contracts/boundary_os.py --json
