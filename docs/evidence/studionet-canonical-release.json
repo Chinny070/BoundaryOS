@@ -11,6 +11,48 @@
     "blocked_at": "2026-10-16T09:46:29.093102+00:00",
     "consume_intent": {
       "cli_exit_code": 1,
+      "finalized_nonce_disposition": "the intent cannot execute at nonce 2624 now; a different transaction is finalized at that exact sender nonce",
+      "historical_broadcast_disposition": "unknown: no transaction hash or transaction ID was ever captured, so the original broadcast, rejection, or drop cannot be distinguished",
+      "later_reconciliation": {
+        "interpretation": "Finality proves nonce 2624 is occupied by a different transaction, preventing the unresolved consume intent from executing at that nonce. It does not prove whether the original intent was never broadcast or was dropped/rejected before finality.",
+        "observed_at_utc": "2026-10-16T16:59:46Z",
+        "primary_latest_nonce": 2627,
+        "primary_pending_nonce": 2627,
+        "same_nonce_transaction": {
+          "consensus": "NO_MAJORITY",
+          "kind": "value send; not a BoundaryOS contract call",
+          "nonce": 2624,
+          "recipient": "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575",
+          "sender": "0xaffE15eEc45b68835cc9E5B4Ab85dD5deaE8e70b",
+          "status": "FINALIZED",
+          "tx_id": "0xa9cb7539bb75c695f7f3331a8cf73a84f7cc75c5fd0b57443ce351aabc8e48ac"
+        },
+        "secondary_address": "0x3a3168d67a110de79461939047a8f7334ff1423d",
+        "secondary_latest_nonce": 417,
+        "secondary_pending_nonce": 417,
+        "sources": [
+          "Explorer signer-address transaction list",
+          "eth_getTransactionByHash",
+          "gen_getTransactionStatus",
+          "eth_getTransactionCount latest/pending"
+        ],
+        "subsequent_finalized_transactions": [
+          {
+            "consensus": "NO_MAJORITY",
+            "kind": "value send",
+            "nonce": 2625,
+            "status": "FINALIZED",
+            "tx_id": "0xadedfb0f5090c388544a598dbd5efdf8d7b0ac61666b00b743810a53f4d1c287"
+          },
+          {
+            "consensus": "NO_MAJORITY",
+            "kind": "value send",
+            "nonce": 2626,
+            "status": "FINALIZED",
+            "tx_id": "0x569c45614e33eeb08d646039f4464bc5f58df0a5f74e7d28def362428005134b"
+          }
+        ]
+      },
       "latest_block_scan": {
         "block": "0x6ad1f4d6",
         "matching_sender_nonce_transactions": 0
@@ -25,8 +67,8 @@
     },
     "decision": "ALLOW",
     "evidence_provenance": "CALLER_ASSERTED",
-    "reason": "CLI write returned no transaction hash. Checkpoint records no outer or GenLayer transaction ID. Reconciliation observed latest nonce 2624 and pending nonce 2624; a read-only scan of latest block 0x6ad1f4d6 found no transaction by this signer at nonce 2624. txpool_content is not supported. No resend was attempted. The ALLOW receipt expired at 2026-10-16T09:48:43Z before the ambiguity could be safely resolved.",
-    "receipt_consume": "unresolved_broadcast; not claimed successful",
+    "reason": "A distinct finalized value-send transaction occupies signer nonce 2624; this makes the unresolved consume intent unable to execute at that nonce, but its historical broadcast/rejection/drop disposition remains unknown. The previous receipt expired. No resend or nonce override was attempted.",
+    "receipt_consume": "not finalized; the intent cannot execute at nonce 2624 now; original broadcast disposition remains unknown",
     "receipt_digest": "1b6a73e4c35f3299efaf297d30cc4740724778af46c997f2a962c86b5706c85a",
     "receipt_digest_valid": true,
     "receipt_readback": {
@@ -60,7 +102,7 @@
   },
   "deployment_source_commit": "2e918135669a98de6e7c32a30c288a69a7ea0c2f",
   "equivalent_corrected_source_diagnostic_coverage": "The complete live scenario matrix passed on corrected-source diagnostic instance 0x2A63fEA23FC0D81D17aC9516Ed4Dd169dc9aa9D8. See studionet-fixed-diagnostic.json. This separate instance is noncanonical.",
-  "explorer_page_inspection": "The direct Explorer transaction URL is recorded above. The web search/open integration did not expose that specific transaction page during verification; Explorer UI status is not represented as independently inspected.",
+  "explorer_page_inspection": "Explorer transaction and signer-address URLs returned HTTP 200. The signer address page exposed transaction rows. The deployment detail route returned only a client-rendered shell without transaction fields in static HTML. Independent CLI/RPC receipt checks confirm deployment FINALIZED, MAJORITY_AGREE, 5 agreeing votes; do not claim an independent visual detail-page inspection.",
   "network": "GenLayer Studionet",
   "not_verified_on_canonical_instance": [
     "successful receipt consumption",
@@ -72,15 +114,54 @@
     "delegation restriction",
     "aggregate quota"
   ],
+  "post_checkpoint_verification_attempts": {
+    "direct_finalized_gen_call": "Read-only request using the documented status=finalized option returned a GenVM method-resolution execution error. No transaction was created.",
+    "observed_at_utc": "2026-10-16T16:59:46Z",
+    "primary_active_account_restored": true,
+    "primary_signer": {
+      "address": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+      "failure": "first get_agent read exhausted bounded retries; CLI subprocess exit 0xC0000409",
+      "name": "my-studionet-wallet",
+      "nonce_latest": 2627,
+      "nonce_pending": 2627,
+      "result": "blocked_before_writes",
+      "writes_submitted": 0
+    },
+    "schema_and_code": "CLI schema and deployed-code reads succeeded; code body still matches frozen source bytes after removing only the CLI Result wrapper.",
+    "secondary_signer": {
+      "address": "0x3a3168d67a110de79461939047a8f7334ff1423d",
+      "failure": "first get_agent read exhausted bounded retries; CLI subprocess exit 0xC0000409",
+      "name": "bradbury-e2e",
+      "nonce_latest": 417,
+      "nonce_pending": 417,
+      "result": "blocked_before_writes",
+      "writes_submitted": 0
+    }
+  },
+  "read_path_diagnostics": {
+    "cli_call": "Read calls returned a GenVM undefined/private-method resolution error; the Windows process then aborted with status 0xC0000409 after bounded retries.",
+    "cli_version": "0.40.0-rc.3",
+    "direct_rpc": "Documented gen_call with status finalized returned the same read execution failure.",
+    "methods_attempted": [
+      "get_agent",
+      "get_action",
+      "get_receipt"
+    ],
+    "not_a_contract_write": true,
+    "raw_verbose_rpc_error_persisted": false
+  },
   "schema_version": 1,
   "signing_material": "Existing named CLI wallets; no key or keystore content read/exported/recorded.",
   "source_parity": {
     "comparison": "Retrieved result body matched committed contracts/boundary_os.py byte-for-byte after stripping the CLI-added leading/trailing newlines.",
+    "frozen_source_commit": "2e918135669a98de6e7c32a30c288a69a7ea0c2f",
     "local_sha256": "15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17",
     "normalized_match": true,
     "retrieval_command": "genlayer code 0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF --rpc https://studio.genlayer.com/api",
     "retrieval_succeeded": true,
-    "retrieved_body_sha256_without_cli_newline_wrapper": "f89204c87887f986e997f3f61884ce2a95e6c12540b2cbd9425d3ff7edfbbd0e"
+    "retrieved_body_sha256_without_cli_newline_wrapper": "f89204c87887f986e997f3f61884ce2a95e6c12540b2cbd9425d3ff7edfbbd0e",
+    "reverified_at_utc": "2026-10-16T16:59:46Z",
+    "working_file_matches_frozen_commit": true
   },
   "transaction_records": [
     {
