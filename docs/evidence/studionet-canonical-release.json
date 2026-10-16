@@ -8,7 +8,7 @@
     "valid receipt readback"
   ],
   "canonical_smoke": {
-    "blocked_at": "2026-10-16T09:46:29.093102+00:00",
+    "blocked_at": "2026-10-16T17:35:08.100246+00:00",
     "consume_intent": {
       "cli_exit_code": 1,
       "finalized_nonce_disposition": "the intent cannot execute at nonce 2624 now; a different transaction is finalized at that exact sender nonce",
@@ -67,6 +67,7 @@
     },
     "decision": "ALLOW",
     "evidence_provenance": "CALLER_ASSERTED",
+    "latest_attempt_summary": "Three fresh submit_action transactions at EVM nonces 2627, 2628, and 2629 finalized NO_MAJORITY with zero observed validator rounds/votes and no VM execution result. Finalized SDK reads confirmed all three derived action IDs and receipts are absent. No further writes were sent.",
     "reason": "A distinct finalized value-send transaction occupies signer nonce 2624; this makes the unresolved consume intent unable to execute at that nonce, but its historical broadcast/rejection/drop disposition remains unknown. The previous receipt expired. No resend or nonce override was attempted.",
     "receipt_consume": "not finalized; the intent cannot execute at nonce 2624 now; original broadcast disposition remains unknown",
     "receipt_digest": "1b6a73e4c35f3299efaf297d30cc4740724778af46c997f2a962c86b5706c85a",
@@ -87,6 +88,56 @@
     "setup_and_semantic_match": true,
     "status": "partial"
   },
+  "canonical_write_attempts": [
+    {
+      "action_id": "bb45548909a4aa58a2c5c100c5c6cca3478000071a3d08c6056a98c7432f516b",
+      "action_readback": "absent at LATEST_FINAL",
+      "application_nonce": 3,
+      "checkpoint_step": "semantic_match.submit.nonce-3",
+      "consensus": "NO_MAJORITY",
+      "evm_nonce": 2627,
+      "execution_result": null,
+      "method": "submit_action",
+      "outer_transaction_hash": "0xf181be01aa857eb5a1bb79a815bf7f3a6799d6640094b641d38ec55c6a5e0d00",
+      "receipt_readback": "absent at LATEST_FINAL",
+      "rounds_observed": "0",
+      "status": "FINALIZED",
+      "transaction_id": "0xf181be01aa857eb5a1bb79a815bf7f3a6799d6640094b641d38ec55c6a5e0d00",
+      "validator_votes": []
+    },
+    {
+      "action_id": "e29c32dd01481afeef33bbcc7b60c79fbccf981e6df1419c57e70a30ad0fdb6f",
+      "action_readback": "absent at LATEST_FINAL",
+      "application_nonce": 4,
+      "checkpoint_step": "semantic_match.submit.nonce-4",
+      "consensus": "NO_MAJORITY",
+      "evm_nonce": 2628,
+      "execution_result": null,
+      "method": "submit_action",
+      "outer_transaction_hash": "0xecca4eb187bd333ba3acd5f686a03f7d020c0bf1e9b26e3168d6be5dfd4c9de4",
+      "receipt_readback": "absent at LATEST_FINAL",
+      "rounds_observed": "0",
+      "status": "FINALIZED",
+      "transaction_id": "0xecca4eb187bd333ba3acd5f686a03f7d020c0bf1e9b26e3168d6be5dfd4c9de4",
+      "validator_votes": []
+    },
+    {
+      "action_id": "6aad0fdeb9c86dbd8c2ac046b6b01dfcdce54df769f6586b8a6f2aaa255a20f1",
+      "action_readback": "absent at LATEST_FINAL",
+      "application_nonce": 5,
+      "checkpoint_step": "semantic_match.submit.nonce-5",
+      "consensus": "NO_MAJORITY",
+      "evm_nonce": 2629,
+      "execution_result": null,
+      "method": "submit_action",
+      "outer_transaction_hash": "0xb43ba53769ddd970150dcf16d52d875978bf3ad679914b2bdd72ef376d0e6a04",
+      "receipt_readback": "absent at LATEST_FINAL",
+      "rounds_observed": "0",
+      "status": "FINALIZED",
+      "transaction_id": "0xb43ba53769ddd970150dcf16d52d875978bf3ad679914b2bdd72ef376d0e6a04",
+      "validator_votes": []
+    }
+  ],
   "chain_id": 61999,
   "contract_source_sha256": "15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17",
   "deployment": {
@@ -115,40 +166,71 @@
     "aggregate quota"
   ],
   "post_checkpoint_verification_attempts": {
-    "direct_finalized_gen_call": "Read-only request using the documented status=finalized option returned a GenVM method-resolution execution error. No transaction was created.",
-    "observed_at_utc": "2026-10-16T16:59:46Z",
-    "primary_active_account_restored": true,
-    "primary_signer": {
-      "address": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
-      "failure": "first get_agent read exhausted bounded retries; CLI subprocess exit 0xC0000409",
-      "name": "my-studionet-wallet",
-      "nonce_latest": 2627,
-      "nonce_pending": 2627,
-      "result": "blocked_before_writes",
-      "writes_submitted": 0
-    },
-    "schema_and_code": "CLI schema and deployed-code reads succeeded; code body still matches frozen source bytes after removing only the CLI Result wrapper.",
-    "secondary_signer": {
-      "address": "0x3a3168d67a110de79461939047a8f7334ff1423d",
-      "failure": "first get_agent read exhausted bounded retries; CLI subprocess exit 0xC0000409",
-      "name": "bradbury-e2e",
-      "nonce_latest": 417,
-      "nonce_pending": 417,
-      "result": "blocked_before_writes",
-      "writes_submitted": 0
-    }
+    "canonical_agent_and_policy_readback": "successful; agent registered and policy version 1 present",
+    "canonical_live_write_attempts": 3,
+    "canonical_live_write_result": "each fresh submit_action finalized NO_MAJORITY, zero rounds/votes, execution_result null; corresponding finalized action and receipt absent",
+    "observed_at_utc": "2026-10-16T17:35:08.100246+00:00",
+    "primary_signer_evm_nonce_range": [
+      2627,
+      2629
+    ],
+    "read_method": "official genlayer-py read_contract with typed Python arguments and LATEST_FINAL",
+    "read_path_repaired": true,
+    "result": "blocked_by_studionet_no_majority",
+    "writes_after_latest_consensus_failure": "stopped; no additional writes or nonce overrides"
   },
   "read_path_diagnostics": {
-    "cli_call": "Read calls returned a GenVM undefined/private-method resolution error; the Windows process then aborted with status 0xC0000409 after bounded retries.",
-    "cli_version": "0.40.0-rc.3",
-    "direct_rpc": "Documented gen_call with status finalized returned the same read execution failure.",
-    "methods_attempted": [
-      "get_agent",
-      "get_action",
-      "get_receipt"
+    "cli_call_result": "Both instances returned a GenVM undefined/private-method resolution execution error on get_agent; child CLI sometimes terminated with Windows status 0xC0000409. This is not a transport 502 response.",
+    "cli_versions_tested": [
+      "0.40.0-rc.3 (installed)",
+      "0.39.1 (isolated npm execution; version listed by official CLI reference)"
     ],
-    "not_a_contract_write": true,
-    "raw_verbose_rpc_error_persisted": false
+    "instances_tested": [
+      "0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF",
+      "0x2A63fEA23FC0D81D17aC9516Ed4Dd169dc9aa9D8"
+    ],
+    "observed_at_utc": "2026-10-16T17:35:08.100246+00:00",
+    "reproducible_supported_path": "client.read_contract(address=contract, function_name=\"get_agent\", args=[primary_address_as_python_str], transaction_hash_variant=TransactionHashVariant.LATEST_FINAL)",
+    "sdk_finalized_comparison": {
+      "caller": "One ephemeral in-memory read-only SDK account reused for both instances; no signing writes or key persistence",
+      "canonical": {
+        "get_agent": {
+          "agent": "0xaffE15eEc45b68835cc9E5B4Ab85dD5deaE8e70b",
+          "frozen": false,
+          "policy_id": "resume-a74563ec1775",
+          "registered": true
+        },
+        "get_policy_version_1": "present",
+        "get_receipt": {
+          "action_id": "56d9d3de0357987a26195251fbde3d7692fb9dc73bde21878dd309072ff2ee62",
+          "decision": "ALLOW",
+          "digest_valid": true,
+          "evidence_provenance": "CALLER_ASSERTED",
+          "expired_at_observation": true,
+          "receipt_digest": "1b6a73e4c35f3299efaf297d30cc4740724778af46c997f2a962c86b5706c85a",
+          "semantic_fit": "MATCH"
+        }
+      },
+      "corrected_diagnostic": {
+        "get_agent": {
+          "agent": "0xaffE15eEc45b68835cc9E5B4Ab85dD5deaE8e70b",
+          "frozen": false,
+          "policy_id": "resume-38d402ffe342",
+          "registered": true
+        },
+        "get_receipt_for_canonical_action_id": "absent"
+      },
+      "post_attempt_canonical_finalized_state": {
+        "agent_registered": true,
+        "failed_attempt_actions_and_receipts": "all absent",
+        "policy_present": true
+      },
+      "rpc": "https://studio.genlayer.com/api (chain ID 61999)",
+      "sdk": "installed genlayer-py client.read_contract",
+      "state_selection": "TransactionHashVariant.LATEST_FINAL"
+    },
+    "typed_argument_cause": "Canonical and diagnostic schema declare get_agent(agent_address: str). The installed official CLI parser maps every 0x-prefixed 40-hex token to CalldataAddress; its scalar parser does not unwrap a standalone JSON-quoted string argument. Thus CLI call cannot represent the declared plain-string address argument faithfully. The call failure is an argument-encoding/client-path failure and is not evidence of a canonical-only contract defect.",
+    "writes_after_read_repair": "none were based on unverified reads; canonical smoke submit attempts were broadcast only after SDK finalized reads succeeded and each was reconciled by transaction status plus action/receipt readback."
   },
   "schema_version": 1,
   "signing_material": "Existing named CLI wallets; no key or keystore content read/exported/recorded.",

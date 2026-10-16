@@ -28,10 +28,8 @@ from typing import Any
 import requests
 from genlayer_py import create_account
 from genlayer_py import create_client
-from genlayer_py.abi.calldata import decode, encode
-from genlayer_py.abi.transactions import serialize
 from genlayer_py.chains import studionet
-from genlayer_py.contracts.utils import make_calldata_object
+from genlayer_py.types import TransactionHashVariant
 from gltest.accounts import get_default_account
 from gltest.accounts import get_accounts
 from gltest_cli.config.general import get_general_config
@@ -150,28 +148,6 @@ def encode_cli_write_intent(contract: str, method: str, args: list[Any], rotatio
     )
 
 
-def encode_cli_read_arg(value: Any) -> str:
-    """Encode one typed argument for the official CLI call parser."""
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if value is None:
-        return "null"
-    if isinstance(value, int):
-        return str(value)
-    if isinstance(value, str):
-        if re.fullmatch(r"0x[a-fA-F0-9]{40}", value):
-            return value
-        if (
-            re.fullmatch(r"-?\d+", value)
-            or re.fullmatch(r"0x[a-fA-F0-9]+", value)
-            or value.lower() in {"true", "false", "null"}
-            or any(char.isspace() for char in value)
-        ):
-            return json.dumps(value, ensure_ascii=True)
-        return value
-    return json.dumps(value, separators=(",", ":"), ensure_ascii=True)
-
-
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -211,7 +187,7 @@ def classify_rpc_error(error: dict[str, Any]) -> str:
 
 def _consensus_outcome(tx: dict[str, Any]) -> str | None:
     """Normalize the current transaction-result field without conflating it with status."""
-    value = tx.get("result_name") or tx.get("consensus_result")
+    value = tx.get("result_name") or tx.get("consensus_result") or tx.get("consensus_outcome")
     if isinstance(value, str):
         return value.upper()
     value = tx.get("result")
@@ -227,6 +203,15 @@ def _consensus_outcome(tx: dict[str, Any]) -> str | None:
     return None
 
 
+def _finalized_no_majority_without_execution(tx: dict[str, Any]) -> bool:
+    """Only finalized consensus failure with no VM result is eligible for a fresh intent."""
+    return (
+        tx.get("status") == "FINALIZED"
+        and _consensus_outcome(tx) == "NO_MAJORITY"
+        and tx.get("execution_result") is None
+    )
+
+
 def is_transient_sdk_read_error(error: str) -> bool:
     """Return true only for recognized transport/service failures, not bad calls."""
     lowered = error.lower()
@@ -237,6 +222,8 @@ def is_transient_sdk_read_error(error: str) -> bool:
             "badgateway",
             "serviceunavailable",
             "too many requests",
+            "http 502",
+            "502 bad gateway",
             "status code 502",
             "status code 503",
             "status code 504",
@@ -376,89 +363,45 @@ class StudionetVerifier:
         raise TransportFailure(f"{method} failed after {RETRY_LIMIT} bounded attempts: {safe_detail}")
 
     def read(self, method: str, args: list[Any] | None = None) -> Any:
-        if self.cli_signing:
-            return self._cli_read(method, args or [])
-        calldata = encode(make_calldata_object(method=method, args=args or []))
-        request_data = serialize([calldata, b"\x00"])
-        result = self.rpc(
-            "gen_call",
-            [{
-                "type": "read",
-                "to": self.contract,
-                "from": self.account.address,
-                "data": request_data,
-                "transaction_hash_variant": "latest-final",
-            }],
-        )
-        if not isinstance(result, str):
-            raise RpcFailure(f"gen_call returned {type(result).__name__}, expected encoded calldata")
-        try:
-            return decode(bytes.fromhex(result.removeprefix("0x")))
-        except Exception as exc:
-            raise RpcFailure(f"gen_call result decode failed: {type(exc).__name__}: {exc}") from exc
+        """Read finalized contract state through the official typed Python SDK.
 
-    def _cli_read(self, method: str, args: list[Any]) -> Any:
+        The CLI parser coerces address-shaped strings to ``CalldataAddress`` and
+        cannot faithfully represent BoundaryOS views whose ABI parameter is a
+        string containing an address. The SDK accepts typed Python strings and
+        decodes the result without the legacy hand-built RPC/RLP path.
+        """
+        read_args = args or []
         delay = 1.0
         for attempt in range(RETRY_LIMIT):
             try:
-                return self._cli_read_once(method, args)
-            except RpcFailure as exc:
-                if not is_transient_sdk_read_error(str(exc)) or attempt + 1 >= RETRY_LIMIT:
-                    raise
-                self.emit(
-                    "read_transport_retry",
-                    method=method,
-                    attempt=attempt + 1,
-                    limit=RETRY_LIMIT,
-                    error_class=type(exc).__name__,
+                return self.client.read_contract(
+                    address=self.contract,
+                    function_name=method,
+                    args=read_args,
+                    transaction_hash_variant=TransactionHashVariant.LATEST_FINAL,
                 )
-                time.sleep(delay)
-                delay = min(delay * 2, 8.0)
-        raise TransportFailure(f"CLI read {method} exhausted bounded retries")
-
-    def _cli_read_once(self, method: str, args: list[Any]) -> Any:
-        """Read through GenLayer CLI's documented, non-mutating ``call`` command.
-
-        This avoids the legacy Python ABI/RLP read encoding and the deploy-script
-        SDK read path that returned invalid-parameter errors on Studionet. CLI
-        argument encoding keeps addresses distinct from quoted strings.
-        """
-        command = _genlayer_command("call", self.contract, method, "--rpc", self.rpc_url)
-        if args:
-            command.extend(["--args", *(encode_cli_read_arg(value) for value in args)])
-        try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=90,
-                check=False,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise RpcFailure(f"GenLayer CLI read {method} transport failed ({type(exc).__name__})") from exc
-        output = (result.stdout or "") + "\n" + (result.stderr or "")
-        if result.returncode != 0:
-            lowered = output.lower()
-            if result.returncode == 3221226505:
-                raise RpcFailure(f"GenLayer CLI read {method} process terminated abnormally (Windows status 0xC0000409)")
-            if any(token in lowered for token in ("unknownrpcerror", "502", "503", "504", "bad gateway", "timed out", "econnreset", "too many requests")):
-                classification = next(
-                    (token for token in ("UnknownRpcError", "502", "503", "504", "Bad Gateway", "timed out", "ECONNRESET", "too many requests") if token.lower() in lowered),
-                    "transient RPC/service error",
-                )
-                raise RpcFailure(f"GenLayer CLI read {method} transient failure ({classification})")
-            raise RpcFailure(f"GenLayer CLI read {method} failed (exit code {result.returncode})")
-        marker = "Result:"
-        if marker not in output:
-            raise RpcFailure(f"GenLayer CLI read {method} returned no result marker")
-        payload = output.split(marker, 1)[1].strip()
-        try:
-            value, _end = json.JSONDecoder().raw_decode(payload)
-            return value
-        except json.JSONDecodeError as exc:
-            raise RpcFailure(f"GenLayer CLI read {method} returned invalid JSON") from exc
+            except Exception as exc:
+                transient = is_transient_sdk_read_error(f"{type(exc).__name__} {exc}")
+                if transient and attempt + 1 < RETRY_LIMIT:
+                    self.emit(
+                        "read_transport_retry",
+                        method=method,
+                        attempt=attempt + 1,
+                        limit=RETRY_LIMIT,
+                        error_class=type(exc).__name__,
+                    )
+                    time.sleep(delay)
+                    delay = min(delay * 2, 8.0)
+                    continue
+                if transient:
+                    raise TransportFailure(
+                        f"GenLayer SDK read {method} failed after {RETRY_LIMIT} bounded attempts "
+                        f"({type(exc).__name__})"
+                    ) from exc
+                raise RpcFailure(
+                    f"GenLayer SDK finalized read {method} failed ({type(exc).__name__})"
+                ) from exc
+        raise TransportFailure(f"GenLayer SDK read {method} exhausted bounded retries")
 
     def tx_record(self, tx_id: str) -> dict[str, Any]:
         status = self.rpc("gen_getTransactionStatus", [tx_id])
@@ -1132,7 +1075,12 @@ def initialize_runtime(
             raise VerificationError(
                 f"CLI active account is {active_account!r}; select configured primary {cli_primary!r} before live verification"
             )
-        client = create_client(chain=studionet, endpoint=plugin.rpc_url)
+        # The SDK requires a local account object to populate ``from`` even for
+        # read-only calls. This ephemeral in-memory identity is never used to
+        # sign writes or persisted; all writes continue through the selected
+        # named CLI wallet below.
+        read_account = create_account()
+        client = create_client(chain=studionet, endpoint=plugin.rpc_url, account=read_account)
         return primary, client, plugin.rpc_url, [primary, child], True, True, active_account
 
     raw_config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
@@ -1445,8 +1393,36 @@ def run_live_suite(
             action_state = None
             receipt_value = None
         if not action_state:
+            submit_step = scenario_step(label, "submit", int(record["nonce"]))
+            prior_submit = verifier.checkpoint.data.get("steps", {}).get(submit_step, {})
+            prior_tx_id = prior_submit.get("tx_id")
+            prior_tx = verifier.checkpoint.data.get("transactions", {}).get(prior_tx_id, {})
+            if prior_tx_id and _finalized_no_majority_without_execution(prior_tx):
+                # A finalized NO_MAJORITY transaction has no contract execution.
+                # Confirm the deterministic action ID is absent at finalized
+                # state before moving to a fresh application nonce and proposal.
+                if _as_json(verifier.read("get_action", [aid])):
+                    raise VerificationError(
+                        f"{label}: NO_MAJORITY submit has an unexpected finalized action; refusing retry"
+                    )
+                record.setdefault("no_majority_submit_attempts", []).append(
+                    {"action_id": aid, "nonce": record["nonce"], "tx_id": prior_tx_id}
+                )
+                next_nonce = max(
+                    int(verifier.checkpoint.data.get("last_action_nonce") or 0),
+                    int(record["nonce"]),
+                ) + 1
+                aid = derive_action_id(policy_id, signer_address, next_nonce, action_json)
+                if _as_json(verifier.read("get_action", [aid])):
+                    raise VerificationError(
+                        f"{label}: retry nonce {next_nonce} already exists on chain; refusing reuse"
+                    )
+                record.update({"nonce": next_nonce, "action_id": aid, "created_at": _now()})
+                record.pop("result", None)
+                verifier.checkpoint.save()
+                submit_step = scenario_step(label, "submit", next_nonce)
             verifier.write_once(
-                scenario_step(label, "submit", int(record["nonce"])),
+                submit_step,
                 "submit_action",
                 [policy_id, int(record["nonce"]), action_json],
                 max_polls=max_polls,

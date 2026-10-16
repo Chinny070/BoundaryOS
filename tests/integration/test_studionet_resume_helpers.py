@@ -1,7 +1,6 @@
 import json
-import subprocess
-
 import pytest
+from genlayer_py.types import TransactionHashVariant
 
 from studionet_resume import (
     CliAccount,
@@ -13,10 +12,10 @@ from studionet_resume import (
     VerificationError,
     classify_rpc_error,
     encode_cli_write_intent,
-    encode_cli_read_arg,
     _consensus_outcome,
     derive_action_id,
     is_transient_sdk_read_error,
+    _finalized_no_majority_without_execution,
     parse_cli_accounts,
     scenario_step,
 )
@@ -95,57 +94,61 @@ def test_cli_sdk_adapter_preserves_typed_string_arguments():
     assert intent["rotations"] == 3
 
 
-def test_cli_read_arguments_preserve_string_address_and_scalar_types():
-    assert encode_cli_read_arg("receipt-id") == "receipt-id"
-    assert encode_cli_read_arg("hello world") == '"hello world"'
-    assert encode_cli_read_arg("0x" + "a" * 40) == "0x" + "a" * 40
-    assert encode_cli_read_arg(19) == "19"
-    assert encode_cli_read_arg(False) == "false"
-
-
-def test_cli_read_parses_the_supported_call_command_result(tmp_path, monkeypatch):
+def test_cli_signer_reads_use_typed_sdk_at_finalized_state(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     checkpoint = Checkpoint(tmp_path / ".boundaryos" / "checkpoint.json", "0xcontract", "0xsigner", "abc")
     try:
         verifier = StudionetVerifier(
             "0xcontract", checkpoint, type("Account", (), {"address": "0xsigner"})(),
-            type("Client", (), {"provider": type("Provider", (), {"url": "https://example.invalid"})()})(),
-            cli_signing=True,
+            type("Client", (), {})(), cli_signing=True, cli_active_account="my-wallet",
         )
-        seen = {}
+        calls = []
+        def sdk_read(**kwargs):
+            calls.append(kwargs)
+            return {"registered": True}
 
-        def fake_run(command, **kwargs):
-            seen["command"] = command
-            seen["kwargs"] = kwargs
-            return subprocess.CompletedProcess(
-                command,
-                0,
-                stdout='\nResult:\n{"consumed":false}\n√ Read operation successfully executed\n',
-                stderr="",
-            )
-
-        monkeypatch.setattr("studionet_resume.subprocess.run", fake_run)
-        assert verifier._cli_read_once("get_receipt", ["action-id"]) == {"consumed": False}
-        assert seen["command"][-1] == "action-id"
-        assert seen["kwargs"]["timeout"] == 90
+        verifier.client.read_contract = sdk_read
+        assert verifier.read("get_agent", ["0xsigner"]) == {"registered": True}
+        assert calls == [{
+            "address": "0xcontract",
+            "function_name": "get_agent",
+            "args": ["0xsigner"],
+            "transaction_hash_variant": TransactionHashVariant.LATEST_FINAL,
+        }]
     finally:
         checkpoint.close()
 
 
-def test_cli_signer_reads_use_sdk_adapter_instead_of_legacy_python_gen_call(tmp_path, monkeypatch):
+def test_sdk_finalized_read_retries_transient_transport_and_fails_closed(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     checkpoint = Checkpoint(tmp_path / ".boundaryos" / "checkpoint.json", "0xcontract", "0xsigner", "abc")
     try:
         verifier = StudionetVerifier(
             "0xcontract", checkpoint, type("Account", (), {"address": "0xsigner"})(),
-            type("Client", (), {"provider": type("Provider", (), {"url": "https://example.invalid"})()})(),
-            cli_signing=True,
-            cli_active_account="my-wallet",
+            type("Client", (), {})(), cli_signing=True,
         )
-        calls = []
-        monkeypatch.setattr(verifier, "_cli_read", lambda method, args: calls.append((method, args)) or {"registered": True})
+        attempts = []
+
+        def transient_then_success(**_kwargs):
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise RuntimeError("HTTP 502 Bad Gateway")
+            return {"registered": True}
+
+        verifier.client.read_contract = transient_then_success
+        monkeypatch.setattr("studionet_resume.time.sleep", lambda _delay: None)
         assert verifier.read("get_agent", ["0xsigner"]) == {"registered": True}
-        assert calls == [("get_agent", ["0xsigner"])]
+        assert len(attempts) == 2
+
+        attempts.clear()
+        def execution_error(**_kwargs):
+            attempts.append(1)
+            raise RuntimeError("execution failed")
+
+        verifier.client.read_contract = execution_error
+        with pytest.raises(RpcFailure, match="GenLayer SDK finalized read get_agent failed"):
+            verifier.read("get_agent", ["0xsigner"])
+        assert len(attempts) == 1
     finally:
         checkpoint.close()
 
@@ -164,42 +167,15 @@ def test_consensus_failure_is_not_mislabeled_as_contract_execution():
     assert _consensus_outcome({"result": 1}) == "MAJORITY_AGREE"
     assert _consensus_outcome({"result": 6}) is None
     assert issubclass(ConsensusFailure, RuntimeError)
-
-
-def test_cli_sdk_read_retries_only_recognized_transient_service_errors(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    checkpoint = Checkpoint(tmp_path / ".boundaryos" / "checkpoint.json", "0xcontract", "0xsigner", "abc")
-    try:
-        verifier = StudionetVerifier(
-            "0xcontract", checkpoint, type("Account", (), {"address": "0xsigner"})(),
-            type("Client", (), {"provider": type("Provider", (), {"url": "https://example.invalid"})()})(),
-            cli_signing=True,
-        )
-        attempts = []
-
-        def transient_then_success(_method, _args):
-            attempts.append(1)
-            if len(attempts) == 1:
-                raise RpcFailure("GenLayer SDK read get_agent failed (UnknownRpcError, code=-1)")
-            return {"registered": True}
-
-        monkeypatch.setattr(verifier, "_cli_read_once", transient_then_success)
-        monkeypatch.setattr("studionet_resume.time.sleep", lambda _delay: None)
-        assert verifier._cli_read("get_agent", ["0xsigner"]) == {"registered": True}
-        assert len(attempts) == 2
-
-        attempts.clear()
-
-        def invalid_call(_method, _args):
-            attempts.append(1)
-            raise RpcFailure("GenLayer SDK read failed (InvalidInputRpcError, code=-32000)")
-
-        monkeypatch.setattr(verifier, "_cli_read_once", invalid_call)
-        with pytest.raises(RpcFailure, match="InvalidInputRpcError"):
-            verifier._cli_read("get_agent", ["0xsigner"])
-        assert len(attempts) == 1
-    finally:
-        checkpoint.close()
+    assert _finalized_no_majority_without_execution({
+        "status": "FINALIZED", "consensus_outcome": "NO_MAJORITY", "execution_result": None
+    })
+    assert not _finalized_no_majority_without_execution({
+        "status": "ACCEPTED", "consensus_outcome": "NO_MAJORITY", "execution_result": None
+    })
+    assert not _finalized_no_majority_without_execution({
+        "status": "FINALIZED", "consensus_outcome": "MAJORITY_AGREE", "execution_result": "SUCCESS"
+    })
 
 
 def test_sdk_read_error_classifier_does_not_retry_contract_or_argument_errors():
