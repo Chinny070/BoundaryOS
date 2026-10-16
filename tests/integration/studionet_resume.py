@@ -43,6 +43,7 @@ from eth_utils import to_checksum_address
 
 CHAIN_ID = 61999
 RPC_URL = "https://studio.genlayer.com/api"
+REQUIRED_GENLAYER_CLI_VERSION = "0.39.1"
 EXPLORER_TX_URL = "https://explorer-studio.genlayer.com/txs?search="
 DEFAULT_CONTRACT = "0xe5bcECDE0F002E78fa6A9271519d42e81D643d94"
 KNOWN_PROPOSAL_TX = "0x64fe023e2f90c845a5e04054eabe2b3620f08b1b8cbd1f5afb57518ce807ecda"
@@ -89,17 +90,89 @@ class CliAccount:
     unlocked: bool = True
 
 
-def _genlayer_command(*args: str) -> list[str]:
-    """Build a direct Node invocation of the installed CLI (never a shell command)."""
-    node = shutil.which("node")
+def _resolve_cli_entry() -> Path:
+    """Resolve the one supported CLI package and reject incompatible entries."""
     configured_entry = os.environ.get("BOUNDARYOS_GENLAYER_CLI_ENTRY")
     cli_shim = shutil.which("genlayer") if not configured_entry else None
-    if not node or (not configured_entry and not cli_shim):
-        raise VerificationError("GenLayer CLI and Node.js must be available on PATH")
-    entry = Path(configured_entry) if configured_entry else Path(cli_shim).parent / "node_modules" / "genlayer" / "dist" / "index.js"
+    if configured_entry:
+        entry = Path(configured_entry).resolve()
+    elif cli_shim:
+        entry = (Path(cli_shim).parent / "node_modules" / "genlayer" / "dist" / "index.js").resolve()
+    else:
+        raise VerificationError("GenLayer CLI executable must be available on PATH")
     if not entry.is_file():
-        raise VerificationError("could not locate the installed GenLayer CLI entry point")
+        raise VerificationError("could not locate the GenLayer CLI entry point invoked by the harness")
+    package = next((parent / "package.json" for parent in entry.parents if (parent / "package.json").is_file()), None)
+    if package is None:
+        raise VerificationError("could not identify the GenLayer CLI package version")
+    try:
+        metadata = json.loads(package.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise VerificationError("could not read GenLayer CLI package metadata") from exc
+    if metadata.get("name") != "genlayer" or metadata.get("version") != REQUIRED_GENLAYER_CLI_VERSION:
+        raise VerificationError(
+            f"harness requires genlayer@{REQUIRED_GENLAYER_CLI_VERSION}; resolved package is "
+            f"{metadata.get('name')}@{metadata.get('version')} at {entry}"
+        )
+    return entry
+
+
+def _genlayer_command(*args: str) -> list[str]:
+    """Build a direct Node invocation of the pinned CLI (never a shell command)."""
+    node = shutil.which("node")
+    if not node:
+        raise VerificationError("Node.js must be available on PATH")
+    entry = _resolve_cli_entry()
     return [node, str(entry), *args]
+
+
+def verify_legacy_cli_encoding() -> dict[str, str]:
+    """Check the pinned CLI bundle uses the legacy addTransaction ABI."""
+    entry = _resolve_cli_entry()
+    source = entry.read_text(encoding="utf-8", errors="replace")
+    legacy_abi = "ADD_TRANSACTION_ABI_V5"
+    if legacy_abi not in source or "type: \"function\"" not in source or "ADD_TRANSACTION_ABI_WITH_FEES" in source:
+        raise VerificationError("resolved GenLayer CLI does not expose the expected legacy transaction encoder")
+    try:
+        studio_start = source.index("var studionet = defineChain(")
+        studio_end = source.index("var VALIDATOR_WALLET_ABI", studio_start)
+        studio_definition = source[studio_start:studio_end]
+        abi_start = source.index("var CONSENSUS_MAIN_CONTRACT2 =")
+        abi_end = source.index("var CONSENSUS_DATA_CONTRACT2", abi_start)
+        consensus_abi = source[abi_start:abi_end]
+        function_position = consensus_abi.index('name: "addTransaction"')
+        inputs_position = consensus_abi.rfind("inputs:", 0, function_position)
+        inputs_open = consensus_abi.index("[", inputs_position, function_position)
+        inputs_close = consensus_abi.index("]", inputs_open, function_position)
+        if "consensusMainContract: CONSENSUS_MAIN_CONTRACT2" not in studio_definition or inputs_position < 0:
+            raise ValueError("Studionet ABI binding is not identifiable")
+        input_count = len(re.findall(r"\btype:\s*\"", consensus_abi[inputs_open:inputs_close]))
+    except (ValueError, IndexError) as exc:
+        raise VerificationError("could not inspect the CLI's Studionet transaction ABI") from exc
+    if input_count != 5:
+        raise VerificationError(f"CLI Studionet addTransaction has {input_count} inputs; expected legacy five-input ABI")
+    return {
+        "version": REQUIRED_GENLAYER_CLI_VERSION,
+        "entry": str(entry),
+        "transaction_abi": legacy_abi,
+        "transaction_selector": "0x27241a99",
+        "studionet_add_transaction_inputs": str(input_count),
+    }
+
+
+def verify_cli_network(rpc_url: str) -> dict[str, str]:
+    """Require the configured executable to report the specified Studionet."""
+    if rpc_url != RPC_URL:
+        raise VerificationError(f"only Studionet RPC {RPC_URL} is supported")
+    version = _cli_run("--version").stdout.strip()
+    if REQUIRED_GENLAYER_CLI_VERSION not in version:
+        raise VerificationError(f"CLI --version returned {version!r}; expected {REQUIRED_GENLAYER_CLI_VERSION}")
+    network = _cli_run("network", "info").stdout
+    normalized = network.lower()
+    if "studionet" not in normalized or RPC_URL.lower() not in normalized or "61999" not in normalized:
+        raise VerificationError("GenLayer CLI network info does not confirm Studionet RPC and chain 61999")
+    encoding = verify_legacy_cli_encoding()
+    return {"version": version, "network": "studionet", "rpc_url": RPC_URL, **encoding}
 
 
 def _cli_run(*args: str, timeout: int = 30) -> subprocess.CompletedProcess[str]:
@@ -1059,6 +1132,8 @@ def initialize_runtime(
     plugin = PluginConfig()
     plugin.network_name = "studionet"
     plugin.rpc_url = network.url or RPC_URL
+    if plugin.rpc_url != RPC_URL:
+        raise VerificationError(f"configured Studionet RPC must be exactly {RPC_URL}")
     general.plugin_config = plugin
     if signer_backend == "cli":
         account_result = _cli_run("account", "list")
@@ -1138,6 +1213,31 @@ def inspect_existing(verifier: StudionetVerifier) -> dict[str, Any]:
     return action
 
 
+def reconcile_checkpoint_before_writes(verifier: StudionetVerifier, max_polls: int) -> None:
+    """Reconcile every saved broadcast before the suite may create a new one."""
+    for step, item in list(verifier.checkpoint.data.get("steps", {}).items()):
+        phase = item.get("phase")
+        if phase in ("finalized", "outer_reverted", "terminal_failure"):
+            continue
+        if item.get("tx_id") or item.get("outer_tx_hash") or phase in (
+            "intent_saved", "broadcast_unknown", "nonce_conflict"
+        ):
+            verifier.reconcile(step, max_polls=max_polls)
+            refreshed = verifier.checkpoint.data.get("steps", {}).get(step, {})
+            if not refreshed.get("tx_id"):
+                raise UnresolvedBroadcast(f"checkpoint step {step} remains unresolved; refusing new writes")
+
+
+def verify_existing_contract_read(verifier: StudionetVerifier, signer_address: str) -> dict[str, Any]:
+    """Prove the official typed SDK can read a deployed contract with string args."""
+    result = _as_json(verifier.read("get_agent", [signer_address]))
+    if not isinstance(result, dict) or result.get("agent", "").lower() != signer_address.lower():
+        raise VerificationError("typed SDK finalized read did not return the requested agent identity")
+    if not isinstance(result.get("registered"), bool) or not isinstance(result.get("frozen"), bool):
+        raise VerificationError("typed SDK finalized read returned an unexpected agent schema")
+    return result
+
+
 def action_digest(action: dict[str, Any]) -> str:
     return hashlib.sha256(_canonical(action)).hexdigest()
 
@@ -1150,25 +1250,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--deploy-source", type=Path, help="explicitly deploy this source once and checkpoint its transaction")
     parser.add_argument("--deployment-checkpoint", type=Path, default=DEFAULT_DEPLOYMENT_CHECKPOINT)
     parser.add_argument("--inspect-existing", action="store_true", help="read-only inspect the known finalized proposal")
+    parser.add_argument("--preflight-only", action="store_true", help="verify the pinned CLI, signer access, network, RPC, chain ID, and typed SDK reads without writing")
     parser.add_argument("--run-live-suite", action="store_true", help="explicitly permit live writes; never deploys")
     parser.add_argument("--resume-step", help="reconcile a previously checkpointed write step without sending any new transaction")
     parser.add_argument("--max-polls", type=int, default=30)
     parser.add_argument(
         "--signer-backend",
         choices=("sdk", "cli"),
-        default=os.environ.get("BOUNDARYOS_SIGNER_BACKEND", "sdk"),
+        default=os.environ.get("BOUNDARYOS_SIGNER_BACKEND", "cli"),
         help="use SDK-configured keys or the installed GenLayer CLI's active keystore account",
     )
     parser.add_argument("--cli-primary", default=os.environ.get("BOUNDARYOS_CLI_PRIMARY", "my-studionet-wallet"))
     parser.add_argument("--cli-child", default=os.environ.get("BOUNDARYOS_CLI_CHILD", "bradbury-e2e"))
     options = parser.parse_args(argv)
-    if options.deploy_source and (options.run_live_suite or options.inspect_existing or options.resume_step):
+    if options.deploy_source and (options.run_live_suite or options.inspect_existing or options.resume_step or options.preflight_only):
         raise VerificationError("deployment is an explicit separate command; do not combine with inspection or suite writes")
     if options.deploy_source and options.signer_backend != "cli":
         raise VerificationError("checkpointed deployment requires --signer-backend cli")
+    if options.run_live_suite and options.signer_backend != "cli":
+        raise VerificationError("live verification writes require the pinned CLI-backed named-wallet signer")
     if options.resume_step and options.run_live_suite:
         raise VerificationError("--resume-step is read/reconcile-only and cannot be combined with --run-live-suite")
 
+    if options.rpc_url is not None and options.rpc_url != RPC_URL:
+        raise VerificationError(f"only Studionet RPC {RPC_URL} is supported")
     account, client, rpc_url, accounts, stable_primary, stable_child, cli_active_account = initialize_runtime(
         require_stable_signers=options.run_live_suite or options.deploy_source is not None,
         signer_backend=options.signer_backend,
@@ -1199,6 +1304,7 @@ def main(argv: list[str] | None = None) -> int:
         bind_signer=stable_primary,
     )
     try:
+        cli_details = verify_cli_network(rpc_url) if options.signer_backend == "cli" else None
         verifier = StudionetVerifier(
             options.contract,
             checkpoint,
@@ -1211,12 +1317,24 @@ def main(argv: list[str] | None = None) -> int:
         actual_chain = int(verifier.rpc("eth_chainId", []), 16)
         if actual_chain != CHAIN_ID:
             raise VerificationError(f"RPC returned chain ID {actual_chain}, expected {CHAIN_ID}")
+        typed_read = verify_existing_contract_read(verifier, account.address)
         verifier.checkpoint.data["chain_id_observed"] = actual_chain
         verifier.checkpoint.data["signer_nonce_latest"] = int(verifier.rpc("eth_getTransactionCount", [account.address, "latest"]), 16)
         verifier.checkpoint.data["signer_nonce_pending"] = int(verifier.rpc("eth_getTransactionCount", [account.address, "pending"]), 16)
         verifier.checkpoint.save()
-        verifier.emit("preflight", chain_id=actual_chain, contract=options.contract, signer=account.address, live_writes_enabled=options.run_live_suite)
+        verifier.emit(
+            "preflight", chain_id=actual_chain, rpc_url=rpc_url,
+            contract=options.contract, signer=account.address,
+            live_writes_enabled=options.run_live_suite,
+            cli=cli_details,
+            signer_accounts=[{"name": getattr(item, "name", ""), "address": item.address} for item in accounts]
+            if options.signer_backend == "cli" else [],
+            existing_contract_read={"registered": typed_read["registered"], "frozen": typed_read["frozen"]},
+        )
+        if options.preflight_only:
+            return 0
         if deployment_source is not None:
+            reconcile_checkpoint_before_writes(verifier, max_polls=options.max_polls)
             result = verifier.deploy_once(deployment_source, max_polls=options.max_polls)
             verifier.emit(
                 "deployment_complete",
@@ -1238,6 +1356,7 @@ def main(argv: list[str] | None = None) -> int:
         elif not options.run_live_suite:
             raise VerificationError("no inspection target selected; pass the disposable contract address")
         if options.run_live_suite:
+            reconcile_checkpoint_before_writes(verifier, max_polls=options.max_polls)
             run_live_suite(verifier, account, accounts, max_polls=options.max_polls)
         return 0
     finally:

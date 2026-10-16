@@ -1,0 +1,60 @@
+"""Fail-closed consistency checks for BoundaryOS release configuration."""
+
+from __future__ import annotations
+
+import ast
+import json
+from pathlib import Path
+
+import yaml
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def main() -> None:
+    requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
+    pins = {line.split("==", 1)[0]: line.split("==", 1)[1] for line in requirements if "==" in line}
+    expected = {
+        "genlayer-test": "0.29.2",
+        "genlayer-py": "0.16.3",
+        "genvm-linter": "0.11.0",
+    }
+    for package, version in expected.items():
+        if pins.get(package) != version:
+            raise SystemExit(f"requirements.txt must pin {package}=={version}")
+
+    config = yaml.safe_load((ROOT / "gltest.config.yaml").read_text(encoding="utf-8"))
+    if config.get("networks", {}).get("default") != "studionet":
+        raise SystemExit("default GenLayer network must be studionet")
+    if config.get("networks", {}).get("studionet", {}).get("url") != "https://studio.genlayer.com/api":
+        raise SystemExit("Studionet RPC must be https://studio.genlayer.com/api")
+
+    harness = ast.parse((ROOT / "tests/integration/studionet_resume.py").read_text(encoding="utf-8"))
+    constants = {}
+    for node in harness.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            try:
+                constants[node.targets[0].id] = ast.literal_eval(node.value)
+            except (ValueError, TypeError):
+                pass
+    if constants.get("CHAIN_ID") != 61999 or constants.get("RPC_URL") != "https://studio.genlayer.com/api":
+        raise SystemExit("harness chain/RPC constants do not match Studionet 61999")
+
+    # Historical deployment evidence must remain bound to its frozen source,
+    # even after a correction makes the current tree intentionally differ.
+    evidence = json.loads((ROOT / "docs/evidence/studionet-canonical-release.json").read_text(encoding="utf-8"))
+    frozen_commit = evidence.get("deployment_source_commit")
+    frozen_source = __import__("subprocess").check_output(
+        ["git", "show", f"{frozen_commit}:contracts/boundary_os.py"], cwd=ROOT
+    )
+    import hashlib
+
+    frozen_hash = hashlib.sha256(frozen_source).hexdigest()
+    if frozen_hash != evidence.get("contract_source_sha256"):
+        raise SystemExit("historical canonical deployment hash no longer matches its frozen commit")
+    print("release configuration and historical source identity are consistent")
+
+
+if __name__ == "__main__":
+    main()

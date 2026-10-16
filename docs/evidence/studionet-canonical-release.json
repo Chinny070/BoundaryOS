@@ -139,6 +139,55 @@
     }
   ],
   "chain_id": 61999,
+  "corrected_release_candidate": {
+    "observed_at_utc": "2026-10-16T22:54:50Z",
+    "candidate_status": "corrected_locally_not_deployed",
+    "contract_source_sha256": "86720777484aea493439d960cb741639b2320f00d81bd790b3dc14ee547f0937",
+    "deployment_source_commit": "not yet committed at this observation",
+    "historical_canonical_address_is_source_identical": false,
+    "cli_preflight": {
+      "version": "0.39.1",
+      "shell_executable": "C:\\Users\\USERpc\\AppData\\Roaming\\npm\\genlayer.cmd",
+      "harness_entry": "C:\\Users\\USERpc\\AppData\\Roaming\\npm\\node_modules\\genlayer\\dist\\index.js",
+      "network": "studionet",
+      "chain_id": 61999,
+      "rpc": "https://studio.genlayer.com/api",
+      "transaction_selector": "0x27241a99",
+      "studionet_add_transaction_input_count": 5,
+      "primary": {
+        "name": "my-studionet-wallet",
+        "address": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "unlocked": true
+      },
+      "secondary": {
+        "name": "bradbury-e2e",
+        "address": "0x3a3168d67a110de79461939047a8f7334ff1423d",
+        "unlocked": true
+      },
+      "typed_finalized_existing_contract_read": {
+        "address": "0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF",
+        "primary_registered": true,
+        "primary_frozen": false
+      },
+      "writes_submitted": 0
+    },
+    "local_validation": {
+      "python": "3.12",
+      "genlayer_test": "0.29.2",
+      "genlayer_py": "0.16.3",
+      "genvm_linter": "0.11.0",
+      "direct_and_helper_tests": "59 passed using the established Windows environment",
+      "compileall": "passed",
+      "genvm_lint": "3 checks passed using runner v0.2.16 matching the contract SDK pin",
+      "schema": "passed; 22 methods (8 views, 14 writes)",
+      "typecheck": "passed; no type errors",
+      "configuration_and_historical_source_identity": "passed"
+    },
+    "windows_clean_install_limit": "A clean venv with the PyPI genlayer-test==0.29.2 source failed Direct Mode setup because its loader unlinks the stdin backing temp file on Windows (WinError 32). The preinstalled 0.29.2 copy includes a Windows PermissionError guard and passes the suite. GitHub Actions therefore runs full Direct Mode on Linux and Windows harness helper/config checks on Windows.",
+    "consumer_fixture": "two-stage asynchronous consumer example added under tests/fixtures; no live deployment or integration result claimed",
+    "live_corrected_candidate_transactions": [],
+    "readiness": "not_ready; corrected source deployment and live scenario evidence absent"
+  },
   "consensus_diagnosis": {
     "observed_at_utc": "2026-10-16T17:54:00Z",
     "canonical_writes_paused": true,

@@ -22,12 +22,14 @@ A well-formed but false leader `MATCH` is rejected when independent validator ju
 
 After consensus:
 
-- `MATCH` becomes `ALLOW` only after deterministic gates have passed and the aggregate amount is charged.
+- `MATCH` becomes `ALLOW` only after deterministic gates have passed and the aggregate amount is charged as an authorization allowance. The charge happens at successful evaluation; it does not prove the consumer performed an external action or payment.
 - `MISMATCH` becomes `DENY_PURPOSE`.
 - `UNCLEAR` becomes `REVIEW_REQUIRED`, which is not consumable unless the authenticated policy owner explicitly resolves it. That manual path repeats current deterministic checks and cannot bypass hard rules, quotas, revocation, freeze, expiry, or policy freshness.
 - Deterministic denials do not call the model.
 
 The prompt treats caller content as data, never authority. Even so, the contract does not prove model correctness or prevent both independent models from being persuaded by the same adversarial claim. Its security rests on deterministic gates bounding what a semantic false positive can authorize, and on consumers treating claims as claims.
+
+Delegation checks first walk from the action agent to the configured policy root, validating policy identity, principal continuity, registration, revocation, expiry, freeze, cycle, and depth at every ancestor. They then compare each child scope with its immediate parent from root to leaf. Thus an inherited amount sequence such as 100 → 60 → 20 is valid, while any step that widens scope fails before semantic evaluation.
 
 ## Finality
 

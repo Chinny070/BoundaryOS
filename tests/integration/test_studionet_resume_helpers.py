@@ -18,6 +18,9 @@ from studionet_resume import (
     _finalized_no_majority_without_execution,
     parse_cli_accounts,
     scenario_step,
+    _resolve_cli_entry,
+    verify_legacy_cli_encoding,
+    reconcile_checkpoint_before_writes,
 )
 
 
@@ -75,6 +78,13 @@ def test_resume_mode_reconciles_one_step_without_enabling_suite_writes():
         main(["--resume-step", "setup.create_policy", "--run-live-suite"])
 
 
+def test_live_suite_refuses_non_cli_signing_backend():
+    from studionet_resume import main
+
+    with pytest.raises(VerificationError, match="pinned CLI-backed named-wallet signer"):
+        main(["--run-live-suite", "--signer-backend", "sdk"])
+
+
 def test_cli_account_parser_keeps_only_public_identity_and_active_state():
     accounts, active = parse_cli_accounts(
         "my-studionet-wallet 0x" + "1" * 40 + " (active) (unlocked)\n"
@@ -92,6 +102,56 @@ def test_cli_sdk_adapter_preserves_typed_string_arguments():
     intent = json.loads(encode_cli_write_intent("0xcontract", "create_policy", arguments, 3))
     assert intent["args"] == arguments
     assert intent["rotations"] == 3
+
+
+def test_cli_entry_fails_closed_on_wrong_version_and_accepts_only_legacy_bundle(tmp_path, monkeypatch):
+    package = tmp_path / "node_modules" / "genlayer"
+    entry = package / "dist" / "index.js"
+    entry.parent.mkdir(parents=True)
+    (package / "package.json").write_text(json.dumps({"name": "genlayer", "version": "0.40.0-rc.3"}))
+    legacy_fixture = (
+        'ADD_TRANSACTION_ABI_V5; type: "function"; '
+        'var CONSENSUS_MAIN_CONTRACT2 = { abi: [{ inputs: ['
+        '{ type: "address" }, { type: "address" }, { type: "uint256" }, '
+        '{ type: "uint256" }, { type: "bytes" }], name: "addTransaction" }] }; '
+        'var CONSENSUS_DATA_CONTRACT2; '
+        'var studionet = defineChain({ consensusMainContract: CONSENSUS_MAIN_CONTRACT2 }); '
+        'var VALIDATOR_WALLET_ABI;'
+    )
+    entry.write_text(legacy_fixture)
+    monkeypatch.setenv("BOUNDARYOS_GENLAYER_CLI_ENTRY", str(entry))
+    with pytest.raises(VerificationError, match="requires genlayer@0.39.1"):
+        _resolve_cli_entry()
+
+    (package / "package.json").write_text(json.dumps({"name": "genlayer", "version": "0.39.1"}))
+    assert verify_legacy_cli_encoding()["transaction_abi"] == "ADD_TRANSACTION_ABI_V5"
+    entry.write_text(legacy_fixture + " ADD_TRANSACTION_ABI_WITH_FEES")
+    with pytest.raises(VerificationError, match="legacy transaction encoder"):
+        verify_legacy_cli_encoding()
+
+
+def test_live_checkpoint_preflight_blocks_unresolved_broadcast(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    checkpoint = Checkpoint(tmp_path / ".boundaryos" / "checkpoint.json", "0xc", "0xs", "abc")
+    try:
+        checkpoint.data["steps"]["ambiguous"] = {
+            "phase": "broadcast_unknown", "signer_address": "0xs", "reserved_nonce": 42,
+        }
+        verifier = StudionetVerifier(
+            "0xc", checkpoint, type("Account", (), {"address": "0xs"})(), object(), cli_signing=True
+        )
+        calls = []
+
+        def reconcile(step, max_polls):
+            calls.append((step, max_polls))
+            raise VerificationError("historical broadcast disposition unknown")
+
+        verifier.reconcile = reconcile
+        with pytest.raises(VerificationError, match="historical broadcast disposition unknown"):
+            reconcile_checkpoint_before_writes(verifier, 3)
+        assert calls == [("ambiguous", 3)]
+    finally:
+        checkpoint.close()
 
 
 def test_cli_signer_reads_use_typed_sdk_at_finalized_state(tmp_path, monkeypatch):

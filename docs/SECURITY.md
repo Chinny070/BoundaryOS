@@ -12,9 +12,9 @@ Authenticated principals, agents, consumers, and the deployer are identified fro
 - Only the policy owner creates later policy versions, revokes a policy, or manages consumers.
 - Policy versions are append-only. An update makes older receipts stale for current consumption.
 - Agent actions are bounded JSON with a canonical digest, a policy version, and a strictly increasing per-agent nonce. Proposals expire after ten minutes; successful receipts expire within five minutes of evaluation and never beyond policy/proposal expiry.
-- Amounts use integer arithmetic, one explicit unit, per-action caps, and a policy-wide time-window aggregate cap shared by every delegated child.
+- Amounts use integer arithmetic, one explicit unit, per-action caps, and a policy-wide time-window aggregate cap shared by every delegated child. A successful authorization reserves quota at evaluation (or owner approval); the counter records granted authorization allowance, not verified external spending or execution. This conservative charge avoids concurrent over-authorization but may count an unused allowance until the window changes.
 - Explicit action denies, scope limits, unit mismatches, invalid windows, aggregate limits, frozen agents, revoked policies/delegations, stale versions, and replay are decided without AI.
-- Delegation depth is at most four; action type sets, amounts, time windows, and purpose boundaries cannot widen. Purpose boundaries must be exact matches.
+- Delegation depth is at most four edges from the policy root. The resolver validates the ancestry to that registered root, then checks each link from root to leaf: policy ID, parent-child relation, common principal, ancestor freeze/revocation/expiry, nonempty bounded time window, action type subset, amount cap, and exact purpose equality. Cycles, wrong roots, and malformed links fail closed.
 - The deployer can freeze all authorization. The policy owner or agent can freeze an agent; only the policy owner can unfreeze it.
 - A consumer must be allowlisted and can consume a receipt only once, for the exact action digest, while policy, agent, delegation, and receipt remain live.
 - The receipt digest commits to its canonical fields, including consumption status and consuming address; consumption recomputes the digest after those fields change.

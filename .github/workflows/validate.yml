@@ -1,0 +1,51 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    env:
+      GENVM_VERSION: v0.2.16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m compileall -q contracts tests scripts
+      - run: python -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py -q --tb=short
+      - run: genvm-lint lint contracts/boundary_os.py
+      - run: genvm-lint check contracts/boundary_os.py --json
+      - run: genvm-lint schema contracts/boundary_os.py
+      - run: genvm-lint typecheck contracts/boundary_os.py
+      - run: python scripts/check_release_config.py
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m compileall -q contracts tests scripts
+      # genlayer-test 0.29.2's PyPI Direct Mode loader unlinks a temporary
+      # file while stdin still holds it open; Windows refuses that unlink.
+      # Linux runs the complete Direct Mode suite; this job validates the
+      # Windows CLI harness helpers and repository configuration.
+      - run: python -m pytest tests/integration/test_studionet_resume_helpers.py -q --tb=short
+      - run: python scripts/check_release_config.py

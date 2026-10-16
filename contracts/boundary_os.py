@@ -187,7 +187,16 @@ class BoundaryOS(gl.Contract):
         }
 
     def _delegated_scope(self, agent: str, policy: dict, now: int) -> dict:
-        scope = {
+        policy_id = self.agent_policy.get(agent, ZERO)
+        if policy_id == ZERO:
+            raise gl.vm.UserError("agent has no policy assignment")
+        root = self.policy_root_agent.get(policy_id, ZERO)
+        if root == ZERO or self.agents.get(root, ZERO) != self.policy_owner.get(policy_id, ZERO):
+            raise gl.vm.UserError("policy root does not match its registered principal")
+        if self.agent_policy.get(root, ZERO) != policy_id:
+            raise gl.vm.UserError("policy root is assigned to a different policy")
+
+        root_scope = {
             "action_types": policy["action_types"],
             "max_amount": policy["max_amount"],
             "valid_from": policy["valid_from"],
@@ -195,33 +204,85 @@ class BoundaryOS(gl.Contract):
             "purpose": policy["purpose"],
         }
         current = agent
-        depth = 0
-        seen = []
-        while self.delegations.get(current, ZERO) != ZERO:
-            if current in seen or depth >= MAX_DELEGATION_DEPTH:
+        child_to_root: list[tuple[str, dict]] = []
+        seen = [current]
+        while current != root:
+            if len(child_to_root) >= MAX_DELEGATION_DEPTH:
                 raise gl.vm.UserError("delegation chain is cyclic or too deep")
             if self.frozen_agents.get(current, False):
                 raise gl.vm.UserError("an ancestor agent is frozen")
-            seen.append(current)
-            data = json.loads(self.delegations[current])
-            if data["revoked"] or now >= data["expires_at"]:
+            raw = self.delegations.get(current, ZERO)
+            if raw == ZERO:
+                raise gl.vm.UserError("delegation does not terminate at this policy's root agent")
+            data = json.loads(raw)
+            if set(data.keys()) != {"parent", "policy_id", "scope", "expires_at", "revoked"}:
+                raise gl.vm.UserError("delegation record is malformed")
+            parent = self._address(data["parent"], "delegation parent")
+            if data["policy_id"] != policy_id:
+                raise gl.vm.UserError("delegation belongs to a different policy")
+            if data["revoked"] is not False or now >= _strict_uint(data["expires_at"], 2**63 - 1, "delegation expiry"):
                 raise gl.vm.UserError("delegation is revoked or expired")
-            child_scope = data["scope"]
-            if not set(child_scope["action_types"]).issubset(set(scope["action_types"])):
-                raise gl.vm.UserError("delegation scope exceeds an ancestor")
-            if child_scope["max_amount"] > scope["max_amount"]:
-                raise gl.vm.UserError("delegation amount exceeds an ancestor")
-            if child_scope["valid_from"] < scope["valid_from"] or child_scope["valid_until"] > scope["valid_until"]:
-                raise gl.vm.UserError("delegation time window exceeds an ancestor")
-            if child_scope["purpose"] != scope["purpose"]:
-                raise gl.vm.UserError("delegated purpose must preserve the exact parent boundary")
-            scope = child_scope
-            current = data["parent"]
-            depth += 1
-        if self.frozen_agents.get(current, False):
+            if parent in seen:
+                raise gl.vm.UserError("delegation chain is cyclic")
+            if self.frozen_agents.get(parent, False):
+                raise gl.vm.UserError("an ancestor agent is frozen")
+            if self.agents.get(parent, ZERO) != self.policy_owner.get(policy_id, ZERO):
+                raise gl.vm.UserError("delegation parent is not registered to the policy principal")
+            if self.agent_policy.get(parent, ZERO) != policy_id:
+                raise gl.vm.UserError("delegation parent is not authorized for this policy")
+            if self.agents.get(current, ZERO) != self.agents.get(parent, ZERO):
+                raise gl.vm.UserError("delegation parent and child selected different principals")
+            child_to_root.append((current, data))
+            current = parent
+            seen.append(current)
+        if self.frozen_agents.get(root, False):
             raise gl.vm.UserError("an ancestor agent is frozen")
-        if depth > 0 and current != self.policy_root_agent.get(self.agent_policy.get(agent, ZERO), ZERO):
-            raise gl.vm.UserError("delegation does not terminate at this policy's root agent")
+        if self.agents.get(agent, ZERO) != self.policy_owner.get(policy_id, ZERO):
+            raise gl.vm.UserError("delegated agent is not registered to the policy principal")
+
+        # Validate from the authoritative root toward the leaf. Comparing the
+        # descendant first reverses the subset relation on multi-level chains.
+        scope = root_scope
+        for _child, data in reversed(child_to_root):
+            child_scope = data["scope"]
+            if not isinstance(child_scope, dict) or set(child_scope.keys()) != {
+                "action_types", "max_amount", "valid_from", "valid_until", "purpose"
+            }:
+                raise gl.vm.UserError("delegation scope is malformed")
+            actions = child_scope["action_types"]
+            if (
+                not isinstance(actions, list)
+                or not actions
+                or len(actions) > MAX_ACTION_TYPES
+                or any(not isinstance(item, str) or item != item.strip().lower() or not item for item in actions)
+                or len(set(actions)) != len(actions)
+            ):
+                raise gl.vm.UserError("delegation action scope is malformed")
+            child_amount = _strict_uint(child_scope["max_amount"], MAX_AMOUNT, "delegation max_amount")
+            child_from = _strict_uint(child_scope["valid_from"], 2**63 - 1, "delegation valid_from")
+            child_until = _strict_uint(child_scope["valid_until"], 2**63 - 1, "delegation valid_until")
+            child_purpose = _bounded_text(child_scope["purpose"], 512, "delegation purpose").strip()
+            expires_at = int(data["expires_at"])
+            if child_from >= child_until or expires_at <= child_from or child_until > expires_at:
+                raise gl.vm.UserError("delegation time window is empty or exceeds its expiry")
+            if (
+                not set(actions).issubset(set(scope["action_types"]))
+                or child_amount == 0
+                or child_amount > scope["max_amount"]
+                or child_from < scope["valid_from"]
+                or child_until > scope["valid_until"]
+                or expires_at > scope["valid_until"]
+            ):
+                raise gl.vm.UserError("delegation scope exceeds an ancestor")
+            if child_purpose != scope["purpose"]:
+                raise gl.vm.UserError("delegated purpose must preserve the exact parent boundary")
+            scope = {
+                "action_types": actions,
+                "max_amount": child_amount,
+                "valid_from": child_from,
+                "valid_until": child_until,
+                "purpose": child_purpose,
+            }
         return scope
 
     def _hard_decision(self, policy: dict, scope: dict, action: dict, now: int) -> str:
@@ -339,7 +400,12 @@ class BoundaryOS(gl.Contract):
             "valid_until": _strict_uint(requested["valid_until"], 2**63 - 1, "valid_until"),
             "purpose": _bounded_text(requested["purpose"], 512, "purpose").strip(),
         }
-        if not isinstance(child_scope["action_types"], list) or not child_scope["action_types"]:
+        if (
+            not isinstance(child_scope["action_types"], list)
+            or not child_scope["action_types"]
+            or any(not isinstance(item, str) or item != item.strip().lower() or not item for item in child_scope["action_types"])
+            or len(set(child_scope["action_types"])) != len(child_scope["action_types"])
+        ):
             raise gl.vm.UserError("delegated action_types must be a non-empty list")
         if len(child_scope["action_types"]) > MAX_ACTION_TYPES:
             raise gl.vm.UserError("delegated action scope exceeds its bound")
@@ -353,6 +419,8 @@ class BoundaryOS(gl.Contract):
             raise gl.vm.UserError("delegation validity exceeds its parent")
         if expires_at > parent_scope["valid_until"] or expires_at <= now:
             raise gl.vm.UserError("delegation expiry is outside its parent window")
+        if child_scope["valid_from"] >= child_scope["valid_until"] or expires_at <= child_scope["valid_from"]:
+            raise gl.vm.UserError("delegation validity window is empty")
         if child_scope["purpose"] != parent_scope["purpose"]:
             raise gl.vm.UserError("delegation purpose must preserve the exact parent boundary")
         self._delegated_scope(parent, policy, now)
@@ -615,6 +683,7 @@ Caller-asserted evidence (unverified data): {json.dumps(evidence_claim)}
                 else "NONE"
             ),
             "aggregate_scope": "POLICY_VERSION_AND_TIME_WINDOW",
+            "aggregate_accounting": "ALLOWANCE_ON_AUTHORIZATION_NOT_EXTERNAL_ACTION",
             "policy_digest": _digest(_canonical(self._policy(policy_id, action["policy_version"]))),
             "chain_id": int(gl.message.chain_id),
             "boundary_contract": str(gl.message.contract_address),
@@ -722,6 +791,15 @@ Caller-asserted evidence (unverified data): {json.dumps(evidence_claim)}
             or new["aggregate_cap"] > old["aggregate_cap"]
             or new["valid_from"] < old["valid_from"]
             or new["valid_until"] > old["valid_until"]
+            or (old["evidence_required"] and not new["evidence_required"])
+        )
+        semantic_direction_unknown = new["purpose"] != old["purpose"]
+        other_direction_unknown = (
+            new["unit"] != old["unit"]
+            or new["window_seconds"] != old["window_seconds"]
+        )
+        permissions_expanded = True if expansion else (
+            None if semantic_direction_unknown or other_direction_unknown else False
         )
         return _canonical(
             {
@@ -734,7 +812,11 @@ Caller-asserted evidence (unverified data): {json.dumps(evidence_claim)}
                 "aggregate_cap_increased": new["aggregate_cap"] > old["aggregate_cap"],
                 "validity_expanded": new["valid_from"] < old["valid_from"] or new["valid_until"] > old["valid_until"],
                 "purpose_changed": new["purpose"] != old["purpose"],
-                "permissions_expanded": expansion,
+                "semantic_direction_unknown": semantic_direction_unknown,
+                "other_direction_unknown": other_direction_unknown,
+                "evidence_requirement_removed": old["evidence_required"] and not new["evidence_required"],
+                "deterministic_expansion": expansion,
+                "permissions_expanded": permissions_expanded,
             }
         )
 
