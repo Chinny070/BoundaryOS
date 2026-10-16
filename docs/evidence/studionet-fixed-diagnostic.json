@@ -1,0 +1,860 @@
+{
+  "assertions": {
+    "delegation_boundary": {
+      "child_address": "0x3a3168d67a110de79461939047a8f7334ff1423d",
+      "execution_rejected": true,
+      "observed_at": "2026-10-16T09:05:09.710010+00:00",
+      "parent_limit": 500,
+      "requested_amount": 501
+    },
+    "evidence_provenance": "CALLER_ASSERTED; no independent external evidence verification is claimed",
+    "policy_revocation": "post-revocation proposal evaluated to DENY_STALE_POLICY; live suite assertion passed",
+    "receipt_readback_and_single_use": "semantic_match receipt was read back, consumed once, then replay attempt finalized with execution ERROR; consumed receipt showed the updated valid digest",
+    "stale_policy_receipt": "version-two ALLOW receipt was consumable before version-three update and not consumable after it; live suite assertion passed"
+  },
+  "chain_id": 61999,
+  "contract_address": "0x2A63fEA23FC0D81D17aC9516Ed4Dd169dc9aa9D8",
+  "contract_role": "corrected-source disposable integration instance; not canonical",
+  "deployment": {
+    "consensus": "MAJORITY_AGREE",
+    "execution": "SUCCESS",
+    "nonce": 2579,
+    "source_sha256": "15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17",
+    "status": "FINALIZED",
+    "tx_id": "0x28e7fe8cf1c25c30ea44f1c724f0ebc198e7d9306f3e56ca1feb53a5a56c2163"
+  },
+  "limitations": [
+    "This is not a canonical release deployment.",
+    "The suite uses the existing CLI managed wallets and official SDK reads; no raw private key or keystore contents were read or exported.",
+    "Explorer source parity for this diagnostic source was independently verified through the GenLayer CLI code command; canonical parity remains pending."
+  ],
+  "network": "GenLayer Studionet",
+  "scenarios": {
+    "agent_freeze": {
+      "action_id": "e85e973b9ed4848267b6a7e01ac55ba304ad627d4814070dc54c0935cd63a808",
+      "consumed": null,
+      "consumed_by": null,
+      "expected_decision": "DENY_FROZEN",
+      "observed_decision": "DENY_FROZEN",
+      "receipt_digest": "d8ac9429761af7f7f3a0488802510cfdb1b13e9415a202e83228d28927ed3c4c",
+      "receipt_digest_valid": true,
+      "receipt_digest_valid_after_consumption": null,
+      "semantic_fit": "NOT_EVALUATED",
+      "transactions": [
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "evaluate_action",
+          "nonce": 2605,
+          "status": "FINALIZED",
+          "step": "agent_freeze.evaluate",
+          "tx_id": "0xc577403c7992bb99b663f15950bfa1d02497d40281e4033daa9b08d414d4ad53"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "freeze_agent",
+          "nonce": 2603,
+          "status": "FINALIZED",
+          "step": "agent_freeze.freeze",
+          "tx_id": "0xd79f3d4107b043092a86113952b12a5e9a52ba0b1b705aad5c4b0737b78793e2"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "submit_action",
+          "nonce": 2602,
+          "status": "FINALIZED",
+          "step": "agent_freeze.submit",
+          "tx_id": "0xf9890a3c489f3a59dbf185a3ad4bf6bf690bac195db71bd902430ec2c2414490"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "freeze_agent",
+          "nonce": 2606,
+          "status": "FINALIZED",
+          "step": "agent_freeze.unfreeze",
+          "tx_id": "0xea1d7fee0edd4c7a122fd1b5739e34c62aa05375dd3b9276de3b6e77616f4cac"
+        }
+      ]
+    },
+    "aggregate_quota_denial": {
+      "action_id": "8ef2a268973146f6bb06ba81079a195d8223d95ebd9d167e6c8ad0bb6acecdf5",
+      "consumed": null,
+      "consumed_by": null,
+      "expected_decision": "DENY_AGGREGATE_CAP",
+      "observed_decision": "DENY_AGGREGATE_CAP",
+      "receipt_digest": "72f6ba77e504e2e8ead850a624ed52488b51febfc5a99c85fbfc3f0ce722b5e1",
+      "receipt_digest_valid": true,
+      "receipt_digest_valid_after_consumption": null,
+      "semantic_fit": "NOT_EVALUATED",
+      "transactions": [
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "evaluate_action",
+          "nonce": 2600,
+          "status": "FINALIZED",
+          "step": "aggregate_quota_denial.evaluate",
+          "tx_id": "0x31ac5b95d25c09ff056fad8fda24de5e30d962d2c48ef3ae8183af633f7a0c19"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "submit_action",
+          "nonce": 2599,
+          "status": "FINALIZED",
+          "step": "aggregate_quota_denial.submit",
+          "tx_id": "0xc7e9acc6f461a7a733a2b442e705f7ab3dd9d8efc4f4eeb89cd6870fca9f8d3a"
+        }
+      ]
+    },
+    "deterministic_hard_deny": {
+      "action_id": "cfdbcaf4aa27cf24c527e9085147d6831dfcea4befb050ea6bee6e77ebb4d848",
+      "consumed": null,
+      "consumed_by": null,
+      "expected_decision": "DENY_HARD_RULE",
+      "observed_decision": "DENY_HARD_RULE",
+      "receipt_digest": "3d91e0e0439ad03f420b6fa9a2f1bd5c17ce4c1d1fef7bed8b27e18b4d65f8e3",
+      "receipt_digest_valid": true,
+      "receipt_digest_valid_after_consumption": null,
+      "semantic_fit": "NOT_EVALUATED",
+      "transactions": [
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "evaluate_action",
+          "nonce": 2591,
+          "status": "FINALIZED",
+          "step": "deterministic_hard_deny.evaluate",
+          "tx_id": "0x075965928193cc80688f035b1dd5276d8607a1215e9dcac17de0de3dd5b85883"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "submit_action",
+          "nonce": 2590,
+          "status": "FINALIZED",
+          "step": "deterministic_hard_deny.submit",
+          "tx_id": "0x21afb2c5b0a9865e7fee607cb0cfe62220edda388cf9689e53fce3725a4e68d2"
+        }
+      ]
+    },
+    "post_revoke_action": {
+      "action_id": "820819a2cbde36cd4b9bc113ff36c174dbf3337edfbad63298de7b7927071659",
+      "consumed": null,
+      "consumed_by": null,
+      "expected_decision": null,
+      "observed_decision": null,
+      "receipt_digest": null,
+      "receipt_digest_valid": null,
+      "receipt_digest_valid_after_consumption": null,
+      "semantic_fit": null,
+      "transactions": [
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "evaluate_action",
+          "nonce": 2615,
+          "status": "FINALIZED",
+          "step": "post_revoke_action.evaluate",
+          "tx_id": "0x361133759536efc8e863a328b65875e64e2a8188a4ed8ab6c6427eea8fb9a462"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "submit_action",
+          "nonce": 2613,
+          "status": "FINALIZED",
+          "step": "post_revoke_action.submit",
+          "tx_id": "0x66c928fbbaabf38bc2270581168a428856b70e23261cc756e7f96560681db9a6"
+        }
+      ]
+    },
+    "quota_match_2": {
+      "action_id": "98d2c85bf2cabd7b3d3cb6352cc72a175d12b5081a737be20fbfa9d19c6abc00",
+      "consumed": null,
+      "consumed_by": null,
+      "expected_decision": "ALLOW",
+      "observed_decision": "ALLOW",
+      "receipt_digest": "fc9ee12741cf83bc1e88724346c014e7dd0e4ede8c2ca425591642e496b5bb2f",
+      "receipt_digest_valid": true,
+      "receipt_digest_valid_after_consumption": null,
+      "semantic_fit": "MATCH",
+      "transactions": [
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "evaluate_action",
+          "nonce": 2593,
+          "status": "FINALIZED",
+          "step": "quota_match_2.evaluate",
+          "tx_id": "0x553a7fa852fab915d85d61367aa6128ea6e205775f933b80d7648cee702d95e3"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "submit_action",
+          "nonce": 2592,
+          "status": "FINALIZED",
+          "step": "quota_match_2.submit",
+          "tx_id": "0xc03bb95e1200b28e87c684b995003a504b40b3344529a58a928d556d4ca776d2"
+        }
+      ]
+    },
+    "quota_match_3": {
+      "action_id": "837274062fa5d8edaf232c65fdbbb6dd25d2ad07516fe6768e809958b045175f",
+      "consumed": null,
+      "consumed_by": null,
+      "expected_decision": "ALLOW",
+      "observed_decision": "ALLOW",
+      "receipt_digest": "98ca44882a15b43a5a171b10222803a154deef83c99b91d353d91d6f6745c806",
+      "receipt_digest_valid": true,
+      "receipt_digest_valid_after_consumption": null,
+      "semantic_fit": "MATCH",
+      "transactions": [
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "evaluate_action",
+          "nonce": 2595,
+          "status": "FINALIZED",
+          "step": "quota_match_3.evaluate",
+          "tx_id": "0xbb01d2f430ba24551bb02bf506c724dfde034c6ebb9bb22542acde66367e704b"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "submit_action",
+          "nonce": 2594,
+          "status": "FINALIZED",
+          "step": "quota_match_3.submit",
+          "tx_id": "0x48b034d5f3c45f0424bf5f17a8ee56a5354596de5f349a752a461bbfefc7718b"
+        }
+      ]
+    },
+    "quota_match_4": {
+      "action_id": "4245821272a03294ebbca22978d420d94117d07f7d1fa8fab05a1e5cd847a92e",
+      "consumed": null,
+      "consumed_by": null,
+      "expected_decision": "ALLOW",
+      "observed_decision": "ALLOW",
+      "receipt_digest": "1f64fabcb46417c1c291c0f3deb148da02c62e16d681ce856371e1bf4d729b13",
+      "receipt_digest_valid": true,
+      "receipt_digest_valid_after_consumption": null,
+      "semantic_fit": "MATCH",
+      "transactions": [
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "evaluate_action",
+          "nonce": 2597,
+          "status": "FINALIZED",
+          "step": "quota_match_4.evaluate",
+          "tx_id": "0xdff81a24adcf5ce51ddef01babd1bfb81edd8ae4f83b823ad13ed9e678b940ec"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "submit_action",
+          "nonce": 2596,
+          "status": "FINALIZED",
+          "step": "quota_match_4.submit",
+          "tx_id": "0x2e306e2b4bb8c99a4f267447b16a0519c9cfaa1c5d968c76518cb94f872ba0e8"
+        }
+      ]
+    },
+    "semantic_match": {
+      "action_id": "0175ac615b2824e9811d3cf7f2ec0aa6aa4b6b44252096dbfd543835aa85e14b",
+      "consumed": true,
+      "consumed_by": "0xaffE15eEc45b68835cc9E5B4Ab85dD5deaE8e70b",
+      "expected_decision": "ALLOW",
+      "observed_decision": "ALLOW",
+      "receipt_digest": "2cebc1324c24ecb23dabb1f39895d82a3484d87fa6eec56cc13965d41783d6ba",
+      "receipt_digest_valid": true,
+      "receipt_digest_valid_after_consumption": true,
+      "semantic_fit": "MATCH",
+      "transactions": [
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "consume_authorization",
+          "nonce": 2586,
+          "status": "FINALIZED",
+          "step": "semantic_match.consume",
+          "tx_id": "0xfbc5ecc7108b88e40448ffb2a91b608eb7fbff333a9617f9c78f45764f3df2e3"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "evaluate_action",
+          "nonce": 2585,
+          "status": "FINALIZED",
+          "step": "semantic_match.evaluate",
+          "tx_id": "0xe257528ac87ed1ed326594b13fc3406dfc4753471720af6b3d3947a24aebed7a"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "ERROR",
+          "expected_rejection": true,
+          "method": "consume_authorization",
+          "nonce": 2587,
+          "status": "FINALIZED",
+          "step": "semantic_match.replay",
+          "tx_id": "0xf41af1a9b060eb548cde211f44b4252b468e1856d78fef138f26834349f9c433"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "submit_action",
+          "nonce": 2583,
+          "status": "FINALIZED",
+          "step": "semantic_match.submit",
+          "tx_id": "0xd9e67923d917dcc78e42bb2f9126557d8780a10ef2f3ddeaa41f2b528e71da1d"
+        }
+      ]
+    },
+    "semantic_mismatch": {
+      "action_id": "cbdb68cec73288ae1744c282072af27eccf83bbd045611e6a19fc54b48767441",
+      "consumed": null,
+      "consumed_by": null,
+      "expected_decision": "DENY_PURPOSE",
+      "observed_decision": "DENY_PURPOSE",
+      "receipt_digest": "ef9da1556b6474b0818d60de8cdfbbcaf6f7772a2abfbce65475e3a59495de64",
+      "receipt_digest_valid": true,
+      "receipt_digest_valid_after_consumption": null,
+      "semantic_fit": "MISMATCH",
+      "transactions": [
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "evaluate_action",
+          "nonce": 2589,
+          "status": "FINALIZED",
+          "step": "semantic_mismatch.evaluate",
+          "tx_id": "0x439eed27ac23392670b41fbb6bb3f901d28c2455b82969e1276cd29eecb434a0"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "submit_action",
+          "nonce": 2588,
+          "status": "FINALIZED",
+          "step": "semantic_mismatch.submit",
+          "tx_id": "0xeea211cd399368bcffb93be11e342c056d2b97a2061dd891df1f5fb7fde05980"
+        }
+      ]
+    },
+    "stale_receipt_source": {
+      "action_id": "6508e940dfecf64c0b0ac3893ed6991d08d8d3e90a2c7e643f3bdb1c45eeb7de",
+      "consumed": null,
+      "consumed_by": null,
+      "expected_decision": "ALLOW",
+      "observed_decision": "ALLOW",
+      "receipt_digest": "9a92a14e733431a28f23053cbaf577a7a1d8a140b898391cd041114f0da68083",
+      "receipt_digest_valid": true,
+      "receipt_digest_valid_after_consumption": null,
+      "semantic_fit": "MATCH",
+      "transactions": [
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "evaluate_action",
+          "nonce": 2611,
+          "status": "FINALIZED",
+          "step": "stale_receipt_source.evaluate",
+          "tx_id": "0x526ef086783f5aac9298c17562d56bd23a1414fe4f65eda422390e5eeab3bc86"
+        },
+        {
+          "consensus": "MAJORITY_AGREE",
+          "execution": "SUCCESS",
+          "expected_rejection": false,
+          "method": "submit_action",
+          "nonce": 2610,
+          "status": "FINALIZED",
+          "step": "stale_receipt_source.submit",
+          "tx_id": "0xb4e128b90e3a67c9273f62d3d12471ad2b39ec56ab230378fd41e4df15811831"
+        }
+      ]
+    }
+  },
+  "schema_version": 1,
+  "signers": {
+    "child": "bradbury-e2e",
+    "primary": "my-studionet-wallet",
+    "signing_material_exported": false
+  },
+  "source_sha256": "15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17",
+  "suite": {
+    "completed_at": "2026-10-16T09:12:06.664830+00:00",
+    "expected_contract_rejection_count": 2,
+    "finalized_transaction_count": 32,
+    "scenario_count": 10,
+    "status": "completed"
+  },
+  "transactions": [
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "evaluate_action",
+      "nonce": 2605,
+      "status": "FINALIZED",
+      "step": "agent_freeze.evaluate",
+      "tx_id": "0xc577403c7992bb99b663f15950bfa1d02497d40281e4033daa9b08d414d4ad53",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "freeze_agent",
+      "nonce": 2603,
+      "status": "FINALIZED",
+      "step": "agent_freeze.freeze",
+      "tx_id": "0xd79f3d4107b043092a86113952b12a5e9a52ba0b1b705aad5c4b0737b78793e2",
+      "vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "submit_action",
+      "nonce": 2602,
+      "status": "FINALIZED",
+      "step": "agent_freeze.submit",
+      "tx_id": "0xf9890a3c489f3a59dbf185a3ad4bf6bf690bac195db71bd902430ec2c2414490",
+      "vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "freeze_agent",
+      "nonce": 2606,
+      "status": "FINALIZED",
+      "step": "agent_freeze.unfreeze",
+      "tx_id": "0xea1d7fee0edd4c7a122fd1b5739e34c62aa05375dd3b9276de3b6e77616f4cac",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "evaluate_action",
+      "nonce": 2600,
+      "status": "FINALIZED",
+      "step": "aggregate_quota_denial.evaluate",
+      "tx_id": "0x31ac5b95d25c09ff056fad8fda24de5e30d962d2c48ef3ae8183af633f7a0c19",
+      "vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "submit_action",
+      "nonce": 2599,
+      "status": "FINALIZED",
+      "step": "aggregate_quota_denial.submit",
+      "tx_id": "0xc7e9acc6f461a7a733a2b442e705f7ab3dd9d8efc4f4eeb89cd6870fca9f8d3a",
+      "vote_counts": {
+        "agree": 4,
+        "idle": 1
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "register_agent",
+      "nonce": 416,
+      "status": "FINALIZED",
+      "step": "delegation.register_child",
+      "tx_id": "0xb9ae5e2cdc9bb3447151f4c309176902990e02d38d0af1d8cc83dadedc8af6ba",
+      "vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "ERROR",
+      "expected_rejection": true,
+      "method": "delegate_authority",
+      "nonce": 2608,
+      "status": "FINALIZED",
+      "step": "delegation.reject_amount_widening",
+      "tx_id": "0x063ce6cc2e356fd19744a75ecf4ed984d9422efbdec85e6e049d874a7a24c112",
+      "vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "evaluate_action",
+      "nonce": 2591,
+      "status": "FINALIZED",
+      "step": "deterministic_hard_deny.evaluate",
+      "tx_id": "0x075965928193cc80688f035b1dd5276d8607a1215e9dcac17de0de3dd5b85883",
+      "vote_counts": {
+        "agree": 4,
+        "idle": 1
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "submit_action",
+      "nonce": 2590,
+      "status": "FINALIZED",
+      "step": "deterministic_hard_deny.submit",
+      "tx_id": "0x21afb2c5b0a9865e7fee607cb0cfe62220edda388cf9689e53fce3725a4e68d2",
+      "vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "revoke_policy",
+      "nonce": 2614,
+      "status": "FINALIZED",
+      "step": "policy.revoke",
+      "tx_id": "0xf96a8da7a8935793bf5f2a884670f23037f254b8f83056376dfbf972a00ffd5d",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "update_policy",
+      "nonce": 2609,
+      "status": "FINALIZED",
+      "step": "policy.update_to_version_2",
+      "tx_id": "0xd471fc8d442ade286ccc9a8078cbb147be4b9215fbbbcca4c1b0c65a4991ab95",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "update_policy",
+      "nonce": 2612,
+      "status": "FINALIZED",
+      "step": "policy.update_to_version_3",
+      "tx_id": "0x69012d8200b2158269b9e5a55245238baca0a0283444ff00941827a8c5d9ae2f",
+      "vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "evaluate_action",
+      "nonce": 2615,
+      "status": "FINALIZED",
+      "step": "post_revoke_action.evaluate",
+      "tx_id": "0x361133759536efc8e863a328b65875e64e2a8188a4ed8ab6c6427eea8fb9a462",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "submit_action",
+      "nonce": 2613,
+      "status": "FINALIZED",
+      "step": "post_revoke_action.submit",
+      "tx_id": "0x66c928fbbaabf38bc2270581168a428856b70e23261cc756e7f96560681db9a6",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "evaluate_action",
+      "nonce": 2593,
+      "status": "FINALIZED",
+      "step": "quota_match_2.evaluate",
+      "tx_id": "0x553a7fa852fab915d85d61367aa6128ea6e205775f933b80d7648cee702d95e3",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "submit_action",
+      "nonce": 2592,
+      "status": "FINALIZED",
+      "step": "quota_match_2.submit",
+      "tx_id": "0xc03bb95e1200b28e87c684b995003a504b40b3344529a58a928d556d4ca776d2",
+      "vote_counts": {
+        "agree": 4,
+        "idle": 1
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "evaluate_action",
+      "nonce": 2595,
+      "status": "FINALIZED",
+      "step": "quota_match_3.evaluate",
+      "tx_id": "0xbb01d2f430ba24551bb02bf506c724dfde034c6ebb9bb22542acde66367e704b",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "submit_action",
+      "nonce": 2594,
+      "status": "FINALIZED",
+      "step": "quota_match_3.submit",
+      "tx_id": "0x48b034d5f3c45f0424bf5f17a8ee56a5354596de5f349a752a461bbfefc7718b",
+      "vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "evaluate_action",
+      "nonce": 2597,
+      "status": "FINALIZED",
+      "step": "quota_match_4.evaluate",
+      "tx_id": "0xdff81a24adcf5ce51ddef01babd1bfb81edd8ae4f83b823ad13ed9e678b940ec",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "submit_action",
+      "nonce": 2596,
+      "status": "FINALIZED",
+      "step": "quota_match_4.submit",
+      "tx_id": "0x2e306e2b4bb8c99a4f267447b16a0519c9cfaa1c5d968c76518cb94f872ba0e8",
+      "vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "consume_authorization",
+      "nonce": 2586,
+      "status": "FINALIZED",
+      "step": "semantic_match.consume",
+      "tx_id": "0xfbc5ecc7108b88e40448ffb2a91b608eb7fbff333a9617f9c78f45764f3df2e3",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "evaluate_action",
+      "nonce": 2585,
+      "status": "FINALIZED",
+      "step": "semantic_match.evaluate",
+      "tx_id": "0xe257528ac87ed1ed326594b13fc3406dfc4753471720af6b3d3947a24aebed7a",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "ERROR",
+      "expected_rejection": true,
+      "method": "consume_authorization",
+      "nonce": 2587,
+      "status": "FINALIZED",
+      "step": "semantic_match.replay",
+      "tx_id": "0xf41af1a9b060eb548cde211f44b4252b468e1856d78fef138f26834349f9c433",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "submit_action",
+      "nonce": 2583,
+      "status": "FINALIZED",
+      "step": "semantic_match.submit",
+      "tx_id": "0xd9e67923d917dcc78e42bb2f9126557d8780a10ef2f3ddeaa41f2b528e71da1d",
+      "vote_counts": {
+        "agree": 4,
+        "idle": 1
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "evaluate_action",
+      "nonce": 2589,
+      "status": "FINALIZED",
+      "step": "semantic_mismatch.evaluate",
+      "tx_id": "0x439eed27ac23392670b41fbb6bb3f901d28c2455b82969e1276cd29eecb434a0",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "submit_action",
+      "nonce": 2588,
+      "status": "FINALIZED",
+      "step": "semantic_mismatch.submit",
+      "tx_id": "0xeea211cd399368bcffb93be11e342c056d2b97a2061dd891df1f5fb7fde05980",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "authorize_consumer",
+      "nonce": 2582,
+      "status": "FINALIZED",
+      "step": "setup.authorize_consumer",
+      "tx_id": "0xefffc890e9b31f800718ac8c503bed06c9ceafea327ffd6d570cf3169cda484b",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "create_policy",
+      "nonce": 2581,
+      "status": "FINALIZED",
+      "step": "setup.create_policy",
+      "tx_id": "0x9cfeb60ce5b3cb700dc7b5e3f8fd11c67e32b311f8b2f41c02df16fe4930e552",
+      "vote_counts": {
+        "agree": 4,
+        "idle": 1
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "register_agent",
+      "nonce": 2580,
+      "status": "FINALIZED",
+      "step": "setup.register_agent",
+      "tx_id": "0xda7e357cc0a537f497f01930f537e8dbdbb44c2c586714468c6378acde13b298",
+      "vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "evaluate_action",
+      "nonce": 2611,
+      "status": "FINALIZED",
+      "step": "stale_receipt_source.evaluate",
+      "tx_id": "0x526ef086783f5aac9298c17562d56bd23a1414fe4f65eda422390e5eeab3bc86",
+      "vote_counts": {
+        "agree": 3,
+        "disagree": 1,
+        "idle": 1
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "expected_rejection": false,
+      "method": "submit_action",
+      "nonce": 2610,
+      "status": "FINALIZED",
+      "step": "stale_receipt_source.submit",
+      "tx_id": "0xb4e128b90e3a67c9273f62d3d12471ad2b39ec56ab230378fd41e4df15811831",
+      "vote_counts": {
+        "agree": 4,
+        "idle": 1
+      }
+    }
+  ]
+}

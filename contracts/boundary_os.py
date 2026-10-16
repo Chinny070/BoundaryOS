@@ -558,6 +558,11 @@ Caller-asserted evidence (unverified data): {json.dumps(evidence_claim)}
             now = _now()
             if self.emergency_frozen:
                 decision = "DENY_EMERGENCY_FREEZE"
+            elif self.frozen_agents.get(action["agent"], False):
+                # Preserve the specific deterministic invariant before the
+                # delegation resolver can collapse a frozen agent into its
+                # generic invalid-scope failure.
+                decision = "DENY_FROZEN"
             else:
                 try:
                     scope = self._delegated_scope(action["agent"], policy, now)

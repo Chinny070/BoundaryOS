@@ -267,6 +267,19 @@ def test_emergency_freeze_fails_closed_and_only_deployer_controls_it(direct_vm, 
     assert receipt["decision"] == "DENY_EMERGENCY_FREEZE"
 
 
+def test_agent_freeze_is_reported_before_delegation_resolution(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = setup_contract(direct_vm, direct_deploy, direct_alice, direct_bob)
+    direct_vm.sender = direct_alice
+    action_id = contract.submit_action("office", 1, action())
+    direct_vm.sender = direct_bob
+    contract.freeze_agent(address(direct_alice), True)
+    direct_vm.strict_mocks = True
+    direct_vm.sender = direct_alice
+    receipt = json.loads(contract.evaluate_action(action_id))
+    assert receipt["decision"] == "DENY_FROZEN"
+    assert receipt["semantic_fit"] == "NOT_EVALUATED"
+
+
 def test_unknown_semantic_enum_becomes_review_required(direct_vm, direct_deploy, direct_alice, direct_bob):
     contract = setup_contract(direct_vm, direct_deploy, direct_alice, direct_bob)
     direct_vm.mock_llm(r".*", json.dumps({"fit": "ALLOW_EVERYTHING"}))

@@ -1,101 +1,78 @@
 # Deployment and verification record
 
-## Network target
+## Network and signer path
 
-The intended canonical target is GenLayer Studionet (chain ID `61999`, RPC `https://studio.genlayer.com/api`). This file records only evidence actually produced. The network run below was a disposable integration instance, not a canonical release deployment.
+The target is GenLayer Studionet, chain ID `61999`, RPC `https://studio.genlayer.com/api`. The installed GenLayer CLI `0.39.1` supports account selection, typed SDK deploy scripts, contract reads, and `code <address>`. The supported CLI account flow signs through the user's existing named wallet; this project never opens, copies, exports, logs, or commits wallet keys or keystore contents. The primary and secondary names used for this verification are `my-studionet-wallet` and `bradbury-e2e`.
 
-## Current record
+The live harness in [studionet_resume.py](../tests/integration/studionet_resume.py) persists write intent, expected nonce, outer transaction hash, recovered GenLayer transaction ID, finality, votes, and execution result. On resume it reconciles known broadcasts and checks latest/pending nonce before new writes. It does not automatically resend an ambiguous write or redeploy during a scenario suite. The CLI deploy adapter is a separate explicit command with an independently bound deployment checkpoint.
 
-| Evidence | Status |
+## Corrected-source diagnostic deployment
+
+This instance was deployed to diagnose the corrected contract and run the full live scenario suite. It is **disposable, not canonical**.
+
+| Evidence | Verified value |
 |---|---|
-| Canonical Studionet contract address | None; release deployment not performed |
-| Canonical deployment transaction | None |
-| Disposable Studionet contract | `0xe5bcECDE0F002E78fa6A9271519d42e81D643d94` |
-| Disposable deployment transaction | `0x9597081e8e9a19a8683f2f0fdfe003b3be83ca48636687c929b9eb9adad8c51b` — `FINALIZED`, `MAJORITY_AGREE` |
-| Deployment source SHA-256 fingerprint | `78e7623d7fa68828e0339bb668e976bb8b57b60f81dddd222ff0ca21f7043c16` (local source at run time; no on-chain source-parity proof; predates receipt-digest fix now in source) |
-| Current source SHA-256 fingerprint | `B957B969BDB9B605F5DDC70AB3A3D62BEF6DD1DE15ECA6A61CD4E43DF5E94888` (working source 2026-10-14; not deployed) |
-| Registration transaction | `0x27b06fae6e1d6192f6eacbb563da0b9e9c1ddfc2b79372ef45e5c3b9249787b2` — `FINALIZED`, `MAJORITY_AGREE` |
-| Policy creation transaction | `0xecfd49ddefa1e3a7b3d033555d7bd3965b82c4c73e3e5840401f13e2e719387e` — `FINALIZED`, `MAJORITY_AGREE` |
-| Consumer authorization transaction | `0x47a8261a9868c789e41dcdb9db5f3ab77fc867694381d6dc8bf6b75e75533f16` — `FINALIZED`, `MAJORITY_AGREE` |
-| Disposable action proposal | `0x64fe023e2f90c845a5e04054eabe2b3620f08b1b8cbd1f5afb57518ce807ecda` — `FINALIZED`; `submit_action`; sender nonce 4; 3 `agree`, 2 `idle`; validator execution `SUCCESS`; no leader VM error. Correct 64-character action ID, recomputed from the finalized transaction calldata and read from finalized state: `08e59188033480e0ea2e0d0cec8c1eaab43a916644ecf39770db92efe38b73ce`. The previously transcribed 65-character ID was invalid. |
-| Existing proposal state | `PENDING`, nonce 1, submitted `2026-10-13T00:36:52Z`, expires `2026-10-13T00:46:52Z`; inspected `2026-10-14T20:31:48Z`, therefore expired. `get_receipt` returned empty. It has not been evaluated. |
-| Live semantic authorization / deterministic hard-denial transaction | None verified |
-| Explorer evidence | [Studionet Explorer transaction search](https://explorer-studio.genlayer.com/txs?search=0x64fe023e2f90c845a5e04054eabe2b3620f08b1b8cbd1f5afb57518ce807ecda) displayed `FINALIZED` / GenVM `SUCCESS` / `Accepted`; direct RPC status returned `FINALIZED`. Detail page returned Cloudflare 502 during inspection. |
-| Canonical deployment source commit | None |
+| Address | `0x2A63fEA23FC0D81D17aC9516Ed4Dd169dc9aa9D8` |
+| Deployment transaction | `0x28e7fe8cf1c25c30ea44f1c724f0ebc198e7d9306f3e56ca1feb53a5a56c2163` |
+| Sender nonce | `2579` |
+| Status / consensus / VM | `FINALIZED` / `MAJORITY_AGREE` / `SUCCESS` |
+| Validators | 3 agreed, 2 idle |
+| Deployed source SHA-256 | `15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17` |
+| Source retrieval and parity | `genlayer code <address>` retrieved public deployed source; after normalizing CLI-added leading/trailing newlines, its bytes exactly matched `contracts/boundary_os.py` and the hash above. |
+| Explorer | [Studionet Explorer address search](https://explorer-studio.genlayer.com/txs?search=0x28e7fe8cf1c25c30ea44f1c724f0ebc198e7d9306f3e56ca1feb53a5a56c2163). The Explorer transaction-detail and address pages were not independently inspected in this run. |
+| Full diagnostic suite | Completed `2026-10-16T09:12:06Z`; 32 unique finalized scenario/setup transactions, including 2 expected contract rejections; all scenario readback assertions passed. |
 
-The machine-readable inspection output is committed at [docs/evidence/studionet-reconciliation.json](evidence/studionet-reconciliation.json). It includes no private keys or action text. The persistent local checkpoint at `.boundaryos/studionet-checkpoint.json` is ignored by Git; it is safe to retain locally and can be continued with the harness.
+Machine-readable public transaction and state evidence is in [studionet-fixed-diagnostic.json](evidence/studionet-fixed-diagnostic.json). The full checkpoint remains under the Git-ignored `.boundaryos/` directory.
 
-Cross-repository procedure review and environment findings are in [Reference deployment-path analysis](REFERENCE_DEPLOYMENT_ANALYSIS.md). A fresh preflight on 2026-10-15 confirmed Studionet chain ID 61999 (`eth_chainId` returned `0xf22f`) and the active, unlocked `my-studionet-wallet` through the installed GenLayer CLI 0.40.0-rc.3. The CLI also confirmed an unlocked, funded secondary account. These profile and network checks succeeded only in approved elevated command invocations; the ordinary Codex process still has `CODEX_SANDBOX_NETWORK_DISABLED=1` and gets `WinError 10013` for sockets and `EPERM` when the CLI tries to initialize `%USERPROFILE%\\.genlayer`. No user wallet key was opened, exported, copied, or recorded.
+### Live scenario results
 
-The same-session read-only integration test passed and re-confirmed the disposable proposal as `PENDING`, expired, with no receipt. The live suite still refuses to start because `gltest.config.yaml` has no stable signer keys. The CLI keystore's named accounts are not SDK signer configuration: the resumable Python harness accepts local private-key configuration, and a public address or CLI alias is not a substitute. No live write or deployment was attempted in this recheck. See the dated preflight entry in the machine-readable [reconciliation record](evidence/studionet-reconciliation.json).
+| Scenario | Finalized state/readback |
+|---|---|
+| Semantic match | `ALLOW`, `MATCH`, valid receipt digest, `CALLER_ASSERTED` provenance |
+| Receipt use | First consume finalized successfully; receipt readback showed consumed state and a recomputed valid digest. Replay finalized with `MAJORITY_AGREE` but VM execution `ERROR`, as expected. |
+| Semantic mismatch | `DENY_PURPOSE`, `MISMATCH`, valid receipt digest |
+| Explicit hard deny | `DENY_HARD_RULE`, `NOT_EVALUATED` |
+| Aggregate quota | Three subsequent matching actions were allowed within the remaining budget; the next action was `DENY_AGGREGATE_CAP`, `NOT_EVALUATED`. |
+| Agent freeze | `DENY_FROZEN`, `NOT_EVALUATED`; this exercised the corrected deterministic classification branch. |
+| Delegation | Parent cap was 500 units; child request for 501 was finalized as the expected execution rejection. |
+| Policy freshness | A version-two ALLOW receipt was consumable before version three and non-consumable after the update; the suite's independent read assertions passed. |
+| Revocation | A pending action evaluated after policy revocation and its readback was `DENY_STALE_POLICY`. |
 
-The local environment has Python 3.12.10, `genlayer-test` 0.29.2, `genlayer-py` 0.16.3, and `genvm-linter` 0.11.1rc2. The contract header's runner hash passes SDK validation. The linter's network lookup now succeeds in an approved elevated invocation and reports a newer runner hash (`babwp9t37jw9g4j2bccgn14g6x7x9s1f7dsmh7emvz735pz4zxa0`); it does not automatically change the contract's pinned runner. Lint, schema validation, and typecheck pass with the project-pinned/cached runner. The prior `WinError 5` runner-cache extraction issue remains unresolved; validation against the newer runner is not claimed.
+These are live diagnostic-instance results, not canonical release evidence. All action evidence is caller asserted; no third-party facts were independently verified.
 
-## Reproduce
+## Earlier disposable instance
 
-Install the pinned test/lint dependencies, run Direct Mode and linter checks, then run the real integration test:
+The earlier instance `0xe5bcECDE0F002E78fa6A9271519d42e81D643d94`, deployed by `0x9597081e8e9a19a8683f2f0fdfe003b3be83ca48636687c929b9eb9adad8c51b`, is superseded diagnostic evidence. It was built from older source; its proposal expired before evaluation. Do not submit or relabel it as canonical.
 
-```powershell
-python -m pip install -r requirements.txt
-$env:PYTHONIOENCODING = 'utf-8'
-python -m pytest tests/direct/ -q --tb=short
-python -m compileall -q contracts tests
-genvm-lint lint contracts/boundary_os.py
-genvm-lint check contracts/boundary_os.py --json
-genvm-lint typecheck contracts/boundary_os.py
-python tests/integration/studionet_resume.py --contract 0xe5bcECDE0F002E78fa6A9271519d42e81D643d94 --inspect-existing
-# Reconcile one named previously checkpointed write without sending anything:
-python tests/integration/studionet_resume.py --resume-step setup.create_policy --contract 0xYOUR_CONTRACT
-# Explicitly opt in to diagnostic live writes after stable primary and child
-# signers are configured locally; this command does not deploy.
-$env:BOUNDARYOS_RUN_LIVE_SUITE = '1'
-python tests/integration/studionet_resume.py --run-live-suite --contract 0xYOUR_DISPOSABLE_CONTRACT
-```
+## Environment and tool findings
 
-## Local validation record
+- Chain ID `61999`, account access, signing with both named accounts, reads, and deployment worked through the supported GenLayer CLI 0.39.1.
+- CLI 0.40.0-rc.3 attempted the unsupported `sim_getFeeConfig` request and produced a finalized `NO_MAJORITY`; it was not used for the successful live suite.
+- Legacy Python `gen_call` read encoding returned an RLP decoding error. The supported SDK read path through the CLI was used during the live suite. A later standalone read probe against the same instance returned `InvalidInputRpcError` for each queried method, so those repeated manual probes are not counted as new state evidence; the suite's assertions and readbacks were completed before that probe.
+- Cloudflare 502 and Windows `WinError 10013` were transient/environmental issues. The resumable process recovered from polling nonfinal states without duplicate broadcast. Latest-runner cache extraction is blocked by Windows `WinError 5`; lint/schema/type validation used the runner already cached for the contract's pinned SDK hash. The latest runner is not claimed validated.
+- One CLI generic `write --args` route coerced structured string arguments incorrectly and finalized with VM `ERROR`. It is excluded from passing contract tests. The harness instead uses the supported CLI SDK deploy-script path with JSON-preserved typed arguments.
 
-Run on 2026-10-14 with Python 3.12.10, `genlayer-test` 0.29.2, `genlayer-py` 0.16.3, and `genvm-linter` 0.11.1rc2:
+## Local validation
+
+Verified after the frozen-agent defect fix:
 
 | Command | Result |
 |---|---|
-| `python -m pytest tests/direct/ -q` | **28 passed** after receipt-digest fix |
+| `python -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py -q --tb=short` | **39 passed** |
 | `python -m compileall -q contracts tests` | **Passed** |
-| `genvm-lint check contracts/boundary_os.py` | **Passed:** SDK schema validation found 22 methods (8 views, 14 writes, no constructor args). Newer runner lookup blocked by network restrictions. |
-| `genvm-lint typecheck contracts/boundary_os.py` | **Passed:** no type errors |
-| `genvm-lint lint contracts/boundary_os.py` | **Passed:** 3 checks |
-| `python tests/integration/studionet_resume.py --contract 0xe5bcECDE0F002E78fa6A9271519d42e81D643d94 --inspect-existing` | **Passed (read-only):** chain 61999; proposal transaction `FINALIZED`, execution `SUCCESS`; correct action read as `PENDING` but expired; receipt absent. |
-| `python -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py -q --tb=short` | **33 passed** after adding resume-mode argument safety coverage. |
-| `python -m pytest tests/integration/test_boundary_os_studionet.py -q -s --tb=short -p no:cacheprovider` | **Skipped on 2026-10-14 after five bounded transport retries:** `eth_chainId` raised connection failure. Wrapper identifies this as infrastructure unavailable; no writes were made. |
-| Read-only `eth_chainId` probe on 2026-10-15 | **Blocked before HTTP response:** Windows `WinError 10013`; process environment reports `CODEX_SANDBOX_NETWORK_DISABLED=1`. No write was attempted. |
-| `python -m pytest tests/integration/test_boundary_os_studionet.py -q -s --tb=short -p no:cacheprovider` | **1 skipped on 2026-10-15** after five bounded transport retries; same sandbox socket failure, no transaction broadcast. |
-| `python tests/integration/studionet_resume.py --run-live-suite` | **Blocked before write:** stable signer and child signer configuration are not present in `gltest.config.yaml`; the default test accounts are ephemeral per process. The harness refuses to broadcast without stable local keys. |
-| `python -m pytest tests/direct/ -q --tb=short` (2026-10-15) | **28 passed**. |
-| `python -m pytest tests/integration/test_studionet_resume_helpers.py -q --tb=short` (2026-10-15) | **5 passed**. |
-| `python -m compileall -q contracts tests` (2026-10-15) | **Passed**. |
-| `genvm-lint lint/check/typecheck contracts/boundary_os.py` (2026-10-15) | **Passed:** 3 lint checks, schema validation for 22 methods (8 views / 14 writes), no type errors. A newer runner is reported but not used. |
-| `python -m pytest tests/integration/test_boundary_os_studionet.py -q -s --tb=short -p no:cacheprovider` (approved elevated invocation, 2026-10-15) | **1 passed, read-only:** chain 61999; existing action remains expired `PENDING`; finalized submit transaction remains `SUCCESS`; receipt absent. No transaction was sent. |
-| `python tests/integration/studionet_resume.py --run-live-suite --contract 0xe5bcECDE0F002E78fa6A9271519d42e81D643d94` | **Blocked before any RPC write:** no stable SDK private-key signer configuration; the harness reports the required local primary and secondary signer configuration. CLI account availability does not satisfy that SDK requirement. |
-| Approved elevated `genlayer account list`, `genlayer network info`, and read-only `eth_chainId` (2026-10-15) | **Passed preflight:** active CLI network Studionet / chain 61999; active wallet and a funded unlocked secondary account are available. Public account identifiers and balances are intentionally omitted from this repository record. |
+| `genvm-lint lint contracts/boundary_os.py` | **Passed, 3 checks** |
+| `genvm-lint check contracts/boundary_os.py --json` | **Passed, 22 methods (8 views, 14 writes);** warning notes a newer uncached runner. |
+| `genvm-lint typecheck contracts/boundary_os.py` | **Passed, no type errors** |
 
-Harness controls: transaction calls retry transient 408/425/429/5xx and request failures with bounded attempts/backoff; each step records a secret-free intent before signing and saves the outer EVM hash immediately after SDK broadcast, then persists the GenLayer ID before polling. On resume, known IDs are reconciled with status/state; if only the outer hash was saved, the harness fetches its receipt and decodes the SDK's `NewTransaction` event. It refuses to resend an intent when broadcast state is unknown and checks latest/pending nonces before each new write. `--resume-step` is reconciliation-only. Machine-readable historic evidence is in `docs/evidence/studionet-reconciliation.json`; active checkpoints remain local and Git-ignored.
+## Canonical release
 
-The current GenVM runner could not be extracted into the user cache due to Windows `WinError 5`; validation used the runner already cached for the pinned SDK hash. The linter's latest-version lookup was blocked by sandboxed network access (`WinError 10013`). Do not describe this as validation against the latest runner. A first lint display also hit Windows cp1252 encoding; rerunning with `PYTHONIOENCODING=utf-8` passed all 3 checks.
+The canonical release remains pending until a committed source revision is deployed and all of the following are recorded with verifiable evidence:
 
-The integration test uses a **disposable** contract. On 2026-10-13 its deployment, registration, policy creation, and consumer authorization finalized with `MAJORITY_AGREE`. The next `submit_action` was broadcast at sender nonce 4 and recovered from Studionet RPC and Explorer as `FINALIZED` with three `agree`, two `idle`, validator execution `SUCCESS`, and no leader VM error. Read-only `gen_call` confirmed its correct action ID is `08e59188033480e0ea2e0d0cec8c1eaab43a916644ecf39770db92efe38b73ce`; the earlier 65-character transcription was wrong. The action is still stored as `PENDING` but its ten-minute deadline elapsed on 2026-10-13, and no receipt exists. An invalid-ID `get_action` returns a contract execution error (`action_id exceeds its byte limit`); the corrected ID succeeds through the pinned SDK and raw RPC. This is evidence that the reported RLP issue may have been triggered by decoding the invalid-input error; that exact historical stack was not reproduced. The Cloudflare 502 during polling remains a distinct transport interruption after a successful broadcast. The proposal has not been evaluated because the original agent signer is not present in the current stable local signer configuration.
+1. Hash the committed contract bytes and deploy that exact source through the checkpointed `--deploy-source` CLI path.
+2. Reconcile the deployment transaction through `FINALIZED`, `MAJORITY_AGREE`, and successful execution; record its address and transaction identifier.
+3. Run the explicit live scenario suite against the canonical address, or an equivalent release smoke flow, and read the resulting state after finality.
+4. Retrieve source using `genlayer code <address>` and compare the normalized retrieved source bytes with the committed contract file.
+5. Verify and record the Explorer address and deployment transaction evidence.
+6. Commit the final evidence and docs; push `main` without rewriting history.
 
-
-The default `gltest-test` configuration generates temporary accounts when `gltest.config.yaml` has no explicit Studionet signer. A fresh process produced a different default address, so a new persistent run cannot safely continue a write sequence. The harness therefore requires a stable signer supplied locally as `BOUNDARYOS_STUDIONET_PRIVATE_KEY` (or an explicit `networks.studionet.from`) and a stable secondary signer via `BOUNDARYOS_STUDIONET_CHILD_PRIVATE_KEY` (or `networks.studionet.accounts`). These values must remain local and must not be committed. The installed official CLI profile does have an active named account `my-studionet-wallet`, but its CLI cannot initialize the profile inside this sandbox and the Python SDK cannot consume that protected CLI wallet without importing signing material. The read-only inspector does not require stable signers when Studionet is reachable. In this session RPC access failed before HTTP with `WinError 10013`; the live run stopped before any transaction broadcast. This differs from the historical Cloudflare 502 response and is not a contract failure. An explicit `--rpc-url` can select another currently documented Studionet endpoint only after confirming it is chain 61999; the harness does not accept a different chain.
-
-The deployment run used the local source whose SHA-256 fingerprint is listed above. The source was not fetched back from chain or independently compared. The Explorer transaction search listing was verified, but the transaction detail page returned 502 and no deployed-source parity was verified. The disposable address must not be presented as a canonical release deployment.
-
-## Canonical deployment procedure
-
-1. Commit and identify the exact contract blob to deploy.
-2. Confirm the selected Studionet account, chain, signer address, and fee behavior without exposing private keys.
-3. Deploy with the current official GenLayer CLI or Studio flow and record the outer EVM hash and GenLayer transaction ID separately.
-4. Wait for `FINALIZED`; `ACCEPTED` is provisional.
-5. Run finalized registration, policy creation, permitted evaluation, deterministic denial, consumer consumption, and revocation flows. Record each transaction ID and read the finalized state.
-6. Retrieve deployed source/code through the official network API, compare it to the committed `contracts/boundary_os.py` bytes, and record the match.
-7. Confirm the address page on the GenLayer Explorer and update the table above with direct evidence.
-
-Do not mark a disposable test deployment canonical. Do not claim consensus from an accepted-only receipt or local simulation. The contract does not custody assets.
+Until those gates are met, the diagnostic deployment must remain labeled noncanonical and the project must not be described as submission-ready.

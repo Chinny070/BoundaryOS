@@ -13,10 +13,14 @@ import argparse
 import hashlib
 import json
 import os
+import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import time
 from datetime import datetime, timezone
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 from typing import Any
@@ -36,6 +40,7 @@ from gltest_cli.config.user import load_user_config
 from hexbytes import HexBytes
 from web3._utils.events import event_abi_to_log_topic, get_event_data
 import yaml
+from eth_utils import to_checksum_address
 
 
 CHAIN_ID = 61999
@@ -46,6 +51,8 @@ KNOWN_PROPOSAL_TX = "0x64fe023e2f90c845a5e04054eabe2b3620f08b1b8cbd1f5afb57518ce
 KNOWN_PROPOSAL_ID = "08e59188033480e0ea2e0d0cec8c1eaab43a916644ecf39770db92efe38b73ce"
 INCORRECT_RECORDED_ID = "8e591880333480e0ea2e0d0cec8c1e6aab43a916644ecf39770db92efe38b73ce"
 DEFAULT_CHECKPOINT = Path(".boundaryos/studionet-checkpoint.json")
+DEFAULT_DEPLOYMENT_CHECKPOINT = Path(".boundaryos/studionet-deployment-checkpoint.json")
+DEPLOYMENT_CHECKPOINT_BINDING = "deployment-pending"
 PRIMARY_KEY_ENV = "BOUNDARYOS_STUDIONET_PRIVATE_KEY"
 CHILD_KEY_ENV = "BOUNDARYOS_STUDIONET_CHILD_PRIVATE_KEY"
 RETRY_LIMIT = 5
@@ -67,8 +74,80 @@ class ContractExecutionFailure(VerificationError):
     """A contract call/write returned an execution error."""
 
 
+class ConsensusFailure(VerificationError):
+    """A transaction finalized without a successful consensus decision."""
+
+
 class UnresolvedBroadcast(VerificationError):
     """A transaction may have been broadcast, but its ID was not persisted."""
+
+
+@dataclass(frozen=True)
+class CliAccount:
+    """Public identity for an account whose signing stays inside GenLayer CLI."""
+
+    name: str
+    address: str
+    unlocked: bool = True
+
+
+def _genlayer_command(*args: str) -> list[str]:
+    """Build a direct Node invocation of the installed CLI (never a shell command)."""
+    node = shutil.which("node")
+    configured_entry = os.environ.get("BOUNDARYOS_GENLAYER_CLI_ENTRY")
+    cli_shim = shutil.which("genlayer") if not configured_entry else None
+    if not node or (not configured_entry and not cli_shim):
+        raise VerificationError("GenLayer CLI and Node.js must be available on PATH")
+    entry = Path(configured_entry) if configured_entry else Path(cli_shim).parent / "node_modules" / "genlayer" / "dist" / "index.js"
+    if not entry.is_file():
+        raise VerificationError("could not locate the installed GenLayer CLI entry point")
+    return [node, str(entry), *args]
+
+
+def _cli_run(*args: str, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+    """Run a read-only/account-selection CLI command without returning raw output in errors."""
+    try:
+        result = subprocess.run(
+            _genlayer_command(*args),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise VerificationError(f"GenLayer CLI invocation failed ({type(exc).__name__})") from exc
+    if result.returncode != 0:
+        raise VerificationError(f"GenLayer CLI command failed with exit code {result.returncode}")
+    return result
+
+
+def parse_cli_accounts(output: str) -> tuple[dict[str, CliAccount], str]:
+    """Extract only account names, public addresses, unlocked state, and active alias."""
+    accounts: dict[str, CliAccount] = {}
+    active = ""
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        match = re.match(r"^(\*\s*)?(.+?)\s+(0x[a-fA-F0-9]{40})(?:\s+(.*))?$", line)
+        if not match:
+            continue
+        marker, name, address, flags = match.groups()
+        name = name.strip()
+        flags = flags or ""
+        accounts[name] = CliAccount(name=name, address=address, unlocked="unlocked" in flags)
+        if marker or "(active)" in flags:
+            active = name
+    return accounts, active
+
+
+def encode_cli_write_intent(contract: str, method: str, args: list[Any], rotations: int) -> str:
+    """Serialize typed SDK arguments for the isolated CLI deploy-script adapter."""
+    return json.dumps(
+        {"contract": contract, "method": method, "args": args, "rotations": rotations},
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
 
 
 def _now() -> str:
@@ -77,6 +156,15 @@ def _now() -> str:
 
 def _canonical(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+
+
+def derive_action_id(policy_id: str, agent_address: str, nonce: int, action_json: str) -> str:
+    """Mirror preview_action_id for nodes whose preview view RPC is broken."""
+    raw = json.loads(action_json)
+    action_digest = hashlib.sha256(_canonical(raw)).hexdigest()
+    normalized_address = to_checksum_address(agent_address)
+    preimage = f"{policy_id}|{normalized_address}|{int(nonce)}|{action_digest}"
+    return hashlib.sha256(preimage.encode("utf-8")).hexdigest()
 
 
 def classify_rpc_error(error: dict[str, Any]) -> str:
@@ -91,6 +179,24 @@ def classify_rpc_error(error: dict[str, Any]) -> str:
     if error.get("code") in (-32603, -32000):
         return "rpc_or_protocol"
     return "rpc_application"
+
+
+def _consensus_outcome(tx: dict[str, Any]) -> str | None:
+    """Normalize the current transaction-result field without conflating it with status."""
+    value = tx.get("result_name") or tx.get("consensus_result")
+    if isinstance(value, str):
+        return value.upper()
+    value = tx.get("result")
+    if isinstance(value, int):
+        return {
+            0: "IDLE",
+            1: "MAJORITY_AGREE",
+            2: "MAJORITY_DISAGREE",
+            3: "MAJORITY_TIMEOUT",
+            4: "DETERMINISTIC_VIOLATION",
+            5: "NO_MAJORITY",
+        }.get(value)
+    return None
 
 
 class Checkpoint:
@@ -166,11 +272,21 @@ class Checkpoint:
 
 
 class StudionetVerifier:
-    def __init__(self, contract: str, checkpoint: Checkpoint, account: Any, client: Any):
+    def __init__(
+        self,
+        contract: str,
+        checkpoint: Checkpoint,
+        account: Any,
+        client: Any,
+        cli_signing: bool = False,
+        cli_active_account: str = "",
+    ):
         self.contract = contract
         self.checkpoint = checkpoint
         self.account = account
         self.client = client
+        self.cli_signing = cli_signing
+        self.cli_active_account = cli_active_account
         self.session = requests.Session()
         self.rpc_url = str(getattr(getattr(client, "provider", None), "url", RPC_URL))
         self.request_id = 0
@@ -209,6 +325,8 @@ class StudionetVerifier:
         raise TransportFailure(f"{method} failed after {RETRY_LIMIT} bounded attempts: {safe_detail}")
 
     def read(self, method: str, args: list[Any] | None = None) -> Any:
+        if self.cli_signing:
+            return self._cli_read(method, args or [])
         calldata = encode(make_calldata_object(method=method, args=args or []))
         request_data = serialize([calldata, b"\x00"])
         result = self.rpc(
@@ -228,6 +346,93 @@ class StudionetVerifier:
         except Exception as exc:
             raise RpcFailure(f"gen_call result decode failed: {type(exc).__name__}: {exc}") from exc
 
+    def _cli_read(self, method: str, args: list[Any]) -> Any:
+        """Use the installed GenLayer SDK's supported read path for CLI signers.
+
+        This avoids the legacy Python ABI/RLP read encoding that Studionet has
+        rejected, while retaining a finalized-state read and the same account
+        selection discipline as writes. The CLI process output is parsed only
+        for the explicit JSON marker; other output is never journaled.
+        """
+        workflow_root = Path(".boundaryos") / "cli-workflows"
+        workflow_root.mkdir(parents=True, exist_ok=True)
+        workflow_dir = Path(tempfile.mkdtemp(prefix="read-", dir=workflow_root))
+        selected = False
+        try:
+            (workflow_dir / "package.json").write_text('{"type":"module"}\n', encoding="utf-8")
+            deploy_dir = workflow_dir / "deploy"
+            deploy_dir.mkdir()
+            script = """export default async function (client) {
+  const payload = JSON.parse(process.env.BOUNDARYOS_CLI_READ_INTENT || "null");
+  if (!payload || !Array.isArray(payload.args)) throw new Error("missing read intent");
+  try {
+    const value = await client.readContract({
+      address: payload.contract,
+      functionName: payload.method,
+      args: payload.args,
+      // The 0.39.1 CLI's supported read default is latest-nonfinal. The
+      // current Studionet RPC returns malformed RLP for latest-final, while
+      // finalized transaction evidence is independently reconciled below.
+    });
+    console.log("BoundaryOS read result:", JSON.stringify({ok: true, value}, (_, item) =>
+      typeof item === "bigint" ? item.toString() : item));
+  } catch (error) {
+    console.log("BoundaryOS read result:", JSON.stringify({
+      ok: false,
+      name: error?.name || "Error",
+      code: error?.code || null,
+      message: error?.shortMessage || error?.message || "read failed",
+    }));
+  }
+}
+"""
+            (deploy_dir / "01_boundaryos_read.js").write_text(script, encoding="utf-8")
+            if self.cli_active_account:
+                _cli_run("account", "use", self.cli_active_account)
+                selected = True
+            process_env = os.environ.copy()
+            process_env["BOUNDARYOS_CLI_READ_INTENT"] = json.dumps(
+                {"contract": self.contract, "method": method, "args": args},
+                separators=(",", ":"),
+            )
+            try:
+                result = subprocess.run(
+                    _genlayer_command("deploy"),
+                    cwd=workflow_dir,
+                    env=process_env,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=180,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise TransportFailure(f"CLI read {method} failed ({type(exc).__name__})") from exc
+            if result.returncode != 0:
+                raise RpcFailure(f"GenLayer SDK read {method} exited with code {result.returncode}")
+            marker = "BoundaryOS read result:"
+            for line in result.stdout.splitlines():
+                if marker in line:
+                    raw = line.split(marker, 1)[1].strip()
+                    try:
+                        parsed = json.loads(raw)
+                        if isinstance(parsed, dict) and parsed.get("ok") is False:
+                            raise RpcFailure(
+                                f"GenLayer SDK read {method} failed ({parsed.get('name')}, "
+                                f"code={parsed.get('code')}, message={str(parsed.get('message', ''))[:180]})"
+                            )
+                        if isinstance(parsed, dict) and parsed.get("ok") is True:
+                            return parsed.get("value")
+                        return parsed
+                    except json.JSONDecodeError as exc:
+                        raise RpcFailure(f"GenLayer SDK read {method} returned invalid JSON") from exc
+            raise RpcFailure(f"GenLayer SDK read {method} produced no result marker")
+        finally:
+            if selected and self.cli_active_account:
+                _cli_run("account", "use", self.cli_active_account)
+            shutil.rmtree(workflow_dir, ignore_errors=True)
+
     def tx_record(self, tx_id: str) -> dict[str, Any]:
         status = self.rpc("gen_getTransactionStatus", [tx_id])
         tx = self.rpc("eth_getTransactionByHash", [tx_id])
@@ -237,13 +442,19 @@ class StudionetVerifier:
         votes = consensus.get("votes") or {}
         leader = consensus.get("leader_receipt") or [{}]
         leader = leader[0] if leader else {}
+        last_round = tx.get("last_round") or {}
+        round_votes = last_round.get("validator_votes_name") or last_round.get("validator_votes") or []
         return {
             "tx_id": tx_id,
             "status": status,
             "sender": tx.get("from_address"),
             "nonce": tx.get("nonce"),
             "raw_consensus_result": tx.get("result"),
-            "validator_votes": votes,
+            "consensus_outcome": _consensus_outcome(tx),
+            "validator_votes": votes or round_votes,
+            "validator_count": last_round.get("validators_count"),
+            "consensus_round": last_round.get("round"),
+            "rounds_observed": tx.get("num_of_rounds"),
             "execution_result": tx.get("execution_result") or leader.get("execution_result"),
             "vm_error_code": (leader.get("genvm_result") or {}).get("error_code"),
             "contract_state_hash": tx.get("contract_state_hash"),
@@ -267,6 +478,18 @@ class StudionetVerifier:
                 self.checkpoint.save()
                 self.emit("transaction_status", **record, poll=poll + 1)
                 if record["status"] == "FINALIZED":
+                    if record.get("consensus_outcome") in {
+                        "NO_MAJORITY",
+                        "MAJORITY_DISAGREE",
+                        "MAJORITY_TIMEOUT",
+                        "DETERMINISTIC_VIOLATION",
+                    }:
+                        current["classification"] = "consensus_failure"
+                        self.checkpoint.save()
+                        raise ConsensusFailure(
+                            f"transaction finalized with consensus outcome {record['consensus_outcome']} "
+                            f"(rounds={record.get('rounds_observed')}, votes={record.get('validator_votes')})"
+                        )
                     if record["execution_result"] not in ("SUCCESS", "FINISHED_WITH_RETURN"):
                         current["classification"] = (
                             "expected_contract_revert" if expected_execution_error else "contract_execution_failure"
@@ -358,7 +581,7 @@ class StudionetVerifier:
                 if isinstance(log.get(key), str):
                     log[key] = HexBytes(log[key])
             decoded_event = get_event_data(self.client.codec, event_abi, log)
-            tx_id = self.client.to_hex(decoded_event["args"]["txId"])
+            tx_id = HexBytes(decoded_event["args"]["txId"]).to_0x_hex()
             break
         if not tx_id:
             raise RpcFailure(f"successful outer receipt {outer_hash} had no NewTransaction event")
@@ -403,29 +626,32 @@ class StudionetVerifier:
         self.checkpoint.data.setdefault("steps", {})[step] = intent
         self.checkpoint.save()
         self.emit("write_intent_saved", step=step, method=method, reserved_nonce=pending)
-        provider = self.client.provider
-        original_make_request = provider.make_request
-
-        def record_outer_hash(rpc_method: str, rpc_params: list[Any]) -> Any:
-            response = original_make_request(rpc_method, rpc_params)
-            if rpc_method == "eth_sendRawTransaction" and isinstance(response, dict) and response.get("result"):
-                intent.update({"phase": "outer_broadcast", "outer_tx_hash": response["result"], "outer_broadcast_at": _now()})
-                self.checkpoint.save()
-                self.emit("outer_transaction_broadcast", step=step, method=method, outer_tx_hash=response["result"], reserved_nonce=pending)
-            return response
-
         try:
-            provider.make_request = record_outer_hash
-            try:
-                tx_id = self.client.write_contract(
-                    address=self.contract,
-                    function_name=method,
-                    account=signer,
-                    consensus_max_rotations=rotations,
-                    args=args,
-                )
-            finally:
-                provider.make_request = original_make_request
+            if self.cli_signing:
+                tx_id = self._cli_write_once(step, method, args, rotations, signer, intent, pending, max_polls)
+            else:
+                provider = self.client.provider
+                original_make_request = provider.make_request
+
+                def record_outer_hash(rpc_method: str, rpc_params: list[Any]) -> Any:
+                    response = original_make_request(rpc_method, rpc_params)
+                    if rpc_method == "eth_sendRawTransaction" and isinstance(response, dict) and response.get("result"):
+                        intent.update({"phase": "outer_broadcast", "outer_tx_hash": response["result"], "outer_broadcast_at": _now()})
+                        self.checkpoint.save()
+                        self.emit("outer_transaction_broadcast", step=step, method=method, outer_tx_hash=response["result"], reserved_nonce=pending)
+                    return response
+
+                provider.make_request = record_outer_hash
+                try:
+                    tx_id = self.client.write_contract(
+                        address=self.contract,
+                        function_name=method,
+                        account=signer,
+                        consensus_max_rotations=rotations,
+                        args=args,
+                    )
+                finally:
+                    provider.make_request = original_make_request
         except Exception as exc:
             intent.update({
                 "phase": "outer_broadcast" if intent.get("outer_tx_hash") else "broadcast_unknown",
@@ -464,6 +690,379 @@ class StudionetVerifier:
         self.checkpoint.save()
         return self.poll_finalized(tx_id, max_polls=max_polls, expected_execution_error=expected_execution_error)
 
+    def _cli_write_once(
+        self,
+        step: str,
+        method: str,
+        args: list[Any],
+        rotations: int,
+        signer: Any,
+        intent: dict[str, Any],
+        reserved_nonce: int,
+        max_polls: int,
+    ) -> str:
+        """Sign with the selected CLI keystore account and checkpoint its broadcast hash."""
+        account_name = getattr(signer, "name", "")
+        if not account_name:
+            raise VerificationError("CLI-backed writes require a named CLI account")
+        selected = False
+        process = None
+        tx_id = ""
+        workflow_dir: Path | None = None
+        try:
+            _cli_run("account", "use", account_name)
+            selected = True
+            # The CLI's generic --args parser guesses address/JSON types and cannot
+            # preserve BoundaryOS's JSON-valued string arguments. Its documented
+            # deploy-script route hands a real GenLayer client to a local JS module;
+            # the SDK then receives the exact typed strings and selected keystore.
+            workflow_root = Path(".boundaryos") / "cli-workflows"
+            workflow_root.mkdir(parents=True, exist_ok=True)
+            workflow_dir = Path(tempfile.mkdtemp(prefix="write-", dir=workflow_root))
+            (workflow_dir / "package.json").write_text('{"type":"module"}\n', encoding="utf-8")
+            deploy_dir = workflow_dir / "deploy"
+            deploy_dir.mkdir()
+            script = """export default async function (client) {
+  const payload = JSON.parse(process.env.BOUNDARYOS_CLI_WRITE_INTENT || "null");
+  if (!payload || !Array.isArray(payload.args)) throw new Error("missing write intent");
+  const hash = await client.writeContract({
+    address: payload.contract,
+    functionName: payload.method,
+    args: payload.args,
+    value: 0n,
+    consensusMaxRotations: payload.rotations,
+  });
+  console.log("BoundaryOS transaction hash:", hash);
+}
+"""
+            (deploy_dir / "01_boundaryos_write.js").write_text(script, encoding="utf-8")
+            process_env = os.environ.copy()
+            process_env["BOUNDARYOS_CLI_WRITE_INTENT"] = encode_cli_write_intent(
+                self.contract, method, args, rotations
+            )
+            command = _genlayer_command("deploy")
+            process = subprocess.Popen(
+                command,
+                cwd=workflow_dir,
+                env=process_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+            )
+            wait_for_hash = False
+            hash_pattern = re.compile(r"0x[a-fA-F0-9]{64}")
+            ansi_pattern = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+            assert process.stdout is not None
+            for line in process.stdout:
+                clean = ansi_pattern.sub("", line)
+                if "BoundaryOS transaction hash:" in clean:
+                    wait_for_hash = True
+                if not wait_for_hash:
+                    continue
+                match = hash_pattern.search(clean)
+                if not match:
+                    continue
+                outer_hash = match.group(0)
+                intent.update({
+                    "phase": "outer_broadcast",
+                    "outer_tx_hash": outer_hash,
+                    "outer_broadcast_at": _now(),
+                    "broadcast_adapter": "genlayer-cli-keystore",
+                    "cli_account_name": account_name,
+                })
+                self.checkpoint.save()
+                self.emit(
+                    "outer_transaction_broadcast",
+                    step=step,
+                    method=method,
+                    outer_tx_hash=outer_hash,
+                    reserved_nonce=reserved_nonce,
+                    adapter="genlayer-cli-keystore",
+                )
+                wait_for_hash = False
+                try:
+                    tx_id = self._recover_genlayer_tx_id(step, intent, max_polls=1)
+                except (TransportFailure, RpcFailure):
+                    # The durable outer hash is enough to recover after a process or
+                    # RPC interruption. Keep polling the CLI's own bounded wait.
+                    pass
+            process.wait(timeout=900)
+        except subprocess.TimeoutExpired:
+            if process is not None:
+                process.kill()
+                process.wait(timeout=30)
+            if not intent.get("outer_tx_hash"):
+                intent["phase"] = "broadcast_unknown"
+            self.checkpoint.save()
+        finally:
+            if process is not None and process.poll() is None:
+                process.kill()
+                process.wait(timeout=30)
+            if selected and self.cli_active_account:
+                try:
+                    _cli_run("account", "use", self.cli_active_account)
+                except VerificationError as exc:
+                    intent["active_account_restore_failed"] = True
+                    intent["active_account_restore_error_class"] = type(exc).__name__
+                    self.checkpoint.save()
+            if workflow_dir is not None:
+                shutil.rmtree(workflow_dir, ignore_errors=True)
+
+        if intent.get("active_account_restore_failed"):
+            raise VerificationError("CLI active account could not be restored; stop before any subsequent write")
+        if not intent.get("outer_tx_hash"):
+            intent.update({"phase": "broadcast_unknown", "cli_exit_code": process.returncode if process else None})
+            self.checkpoint.save()
+            raise UnresolvedBroadcast(
+                "GenLayer CLI exited without a captured write transaction hash; automatic resend is disabled"
+            )
+        if not tx_id:
+            tx_id = self._recover_genlayer_tx_id(step, intent, max_polls=max_polls)
+        # CLI's decided/finalized output is deliberately ignored. The harness
+        # independently checks consensus status and finality using the captured ID.
+        return tx_id
+
+    def deploy_once(self, source_path: Path, max_polls: int = 50) -> dict[str, Any]:
+        """Explicitly deploy source once via the official CLI script client, then reconcile."""
+        if not self.cli_signing:
+            raise VerificationError("checkpointed deployment requires the CLI keystore signer backend")
+        source_path = source_path.resolve()
+        if not source_path.is_file():
+            raise VerificationError("deployment source file does not exist")
+        source_hash = hashlib.sha256(source_path.read_bytes()).hexdigest()
+        step = "deployment.deploy"
+        item = self.checkpoint.data.setdefault("steps", {}).get(step)
+        if item:
+            if item.get("source_sha256") != source_hash:
+                raise VerificationError("deployment checkpoint is bound to different source bytes")
+            if item.get("contract_address"):
+                return item
+            existing = self.reconcile(step, max_polls=max_polls)
+            if existing is None:
+                raise VerificationError("deployment step has no reconciliable broadcast")
+            item = self.checkpoint.data["steps"][step]
+            if not item.get("contract_address"):
+                self._recover_deployment_address(step, item, max_polls)
+            return self.checkpoint.data["steps"][step]
+
+        latest = int(self.rpc("eth_getTransactionCount", [self.account.address, "latest"]), 16)
+        pending = int(self.rpc("eth_getTransactionCount", [self.account.address, "pending"]), 16)
+        if latest != pending:
+            raise UnresolvedBroadcast(
+                f"deployment signer has pending transactions (latest={latest}, pending={pending}); refusing to deploy"
+            )
+        item = {
+            "phase": "intent_saved",
+            "method": "deployContract",
+            "signer_address": self.account.address,
+            "reserved_nonce": pending,
+            "source_sha256": source_hash,
+            "created_at": _now(),
+            "broadcast_adapter": "genlayer-cli-deploy-script",
+        }
+        self.checkpoint.data["steps"][step] = item
+        self.checkpoint.save()
+        self.emit("deployment_intent_saved", source_sha256=source_hash, reserved_nonce=pending)
+
+        _cli_run("account", "use", getattr(self.account, "name", ""))
+        workflow_root = Path(".boundaryos") / "cli-workflows"
+        workflow_root.mkdir(parents=True, exist_ok=True)
+        workflow_dir = Path(tempfile.mkdtemp(prefix="deploy-", dir=workflow_root))
+        deployed_address = ""
+        process = None
+        active_restore_failed = False
+        try:
+            (workflow_dir / "package.json").write_text('{"type":"module"}\n', encoding="utf-8")
+            deploy_dir = workflow_dir / "deploy"
+            deploy_dir.mkdir()
+            script = """import { readFile } from "node:fs/promises";
+export default async function (client) {
+  const payload = JSON.parse(process.env.BOUNDARYOS_CLI_DEPLOY_INTENT || "null");
+  if (!payload) throw new Error("missing deployment intent");
+  let hash = payload.transaction_hash;
+  if (!hash) {
+    const code = await readFile(payload.source_path, "utf8");
+    hash = await client.deployContract({ code, args: [], leaderOnly: false });
+    console.log("BoundaryOS deployment transaction hash:", hash);
+  }
+  const receipt = await client.waitForTransactionReceipt({
+    hash,
+    waitUntil: "decided",
+    retries: 100,
+    interval: 5000,
+    fullTransaction: true,
+  });
+  const address = receipt?.data?.contract_address ?? receipt?.txDataDecoded?.contractAddress;
+  if (address) console.log("BoundaryOS deployed contract address:", address);
+}
+"""
+            (deploy_dir / "01_boundaryos_deploy.js").write_text(script, encoding="utf-8")
+            process_env = os.environ.copy()
+            process_env["BOUNDARYOS_CLI_DEPLOY_INTENT"] = json.dumps(
+                {"source_path": str(source_path)}, separators=(",", ":"), ensure_ascii=True
+            )
+            process = subprocess.Popen(
+                _genlayer_command("deploy"),
+                cwd=workflow_dir,
+                env=process_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+            )
+            wait_for_hash = False
+            hash_pattern = re.compile(r"0x[a-fA-F0-9]{64}")
+            address_pattern = re.compile(r"0x[a-fA-F0-9]{40}")
+            ansi_pattern = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+            assert process.stdout is not None
+            for line in process.stdout:
+                clean = ansi_pattern.sub("", line)
+                if "BoundaryOS deployment transaction hash:" in clean:
+                    wait_for_hash = True
+                if wait_for_hash:
+                    match = hash_pattern.search(clean)
+                    if match:
+                        outer_hash = match.group(0)
+                        item.update({"phase": "outer_broadcast", "outer_tx_hash": outer_hash, "outer_broadcast_at": _now()})
+                        self.checkpoint.save()
+                        self.emit("deployment_outer_transaction_broadcast", outer_tx_hash=outer_hash, reserved_nonce=pending)
+                        wait_for_hash = False
+                        try:
+                            self._recover_genlayer_tx_id(step, item, max_polls=1)
+                        except (TransportFailure, RpcFailure):
+                            pass
+                if "BoundaryOS deployed contract address:" in clean:
+                    match = address_pattern.search(clean)
+                    if match:
+                        deployed_address = match.group(0)
+                        item["contract_address"] = deployed_address
+                        item["address_observed_at"] = _now()
+                        self.checkpoint.save()
+            process.wait(timeout=900)
+        except subprocess.TimeoutExpired:
+            if process is not None:
+                process.kill()
+                process.wait(timeout=30)
+            if not item.get("outer_tx_hash"):
+                item["phase"] = "broadcast_unknown"
+            self.checkpoint.save()
+        except Exception as exc:
+            item.update({
+                "phase": "outer_broadcast" if item.get("outer_tx_hash") else "broadcast_unknown",
+                "error_class": type(exc).__name__,
+                "updated_at": _now(),
+            })
+            self.checkpoint.save()
+            raise UnresolvedBroadcast(
+                "deployment CLI run stopped; saved intent and any captured outer transaction hash were retained"
+            ) from exc
+        finally:
+            if process is not None and process.poll() is None:
+                process.kill()
+                process.wait(timeout=30)
+            try:
+                _cli_run("account", "use", self.cli_active_account)
+            except VerificationError:
+                active_restore_failed = True
+            shutil.rmtree(workflow_dir, ignore_errors=True)
+
+        if active_restore_failed:
+            item["active_account_restore_failed"] = True
+            self.checkpoint.save()
+            raise VerificationError("CLI active account could not be restored after deployment attempt")
+        if not item.get("outer_tx_hash"):
+            item.update({"phase": "broadcast_unknown", "cli_exit_code": process.returncode if process else None})
+            self.checkpoint.save()
+            raise UnresolvedBroadcast("deployment CLI exited without a captured transaction hash; refusing to redeploy")
+        tx_id = item.get("tx_id") or self._recover_genlayer_tx_id(step, item, max_polls=max_polls)
+        intent = self.checkpoint.data["steps"].get(step, {})
+        if intent.get("tx_id") != tx_id:
+            intent.update({"phase": "broadcast", "tx_id": tx_id, "broadcast_at": _now()})
+            self.checkpoint.save()
+        record = self.poll_finalized(tx_id, max_polls=max_polls)
+        item.update({
+            "status": record.get("status"),
+            "consensus_outcome": record.get("consensus_outcome"),
+            "execution_result": record.get("execution_result"),
+            "finalized_at": _now(),
+        })
+        self.checkpoint.save()
+        if not item.get("contract_address"):
+            self._recover_deployment_address(step, item, max_polls)
+        return self.checkpoint.data["steps"][step]
+
+    def _recover_deployment_address(self, step: str, item: dict[str, Any], max_polls: int) -> None:
+        """Recover a deployment address from an existing transaction; never deploy again."""
+        tx_id = item.get("tx_id")
+        if not tx_id:
+            raise UnresolvedBroadcast("deployment has no recovered transaction ID; refusing to redeploy")
+        workflow_root = Path(".boundaryos") / "cli-workflows"
+        workflow_root.mkdir(parents=True, exist_ok=True)
+        workflow_dir = Path(tempfile.mkdtemp(prefix="receipt-", dir=workflow_root))
+        process = None
+        try:
+            (workflow_dir / "package.json").write_text('{"type":"module"}\n', encoding="utf-8")
+            deploy_dir = workflow_dir / "deploy"
+            deploy_dir.mkdir()
+            script = """export default async function (client) {
+  const payload = JSON.parse(process.env.BOUNDARYOS_CLI_DEPLOY_INTENT || "null");
+  const receipt = await client.waitForTransactionReceipt({
+    hash: payload.transaction_hash,
+    waitUntil: "finalized",
+    retries: 100,
+    interval: 5000,
+    fullTransaction: true,
+  });
+  const address = receipt?.data?.contract_address ?? receipt?.txDataDecoded?.contractAddress;
+  if (address) console.log("BoundaryOS deployed contract address:", address);
+}
+"""
+            (deploy_dir / "01_boundaryos_receipt.js").write_text(script, encoding="utf-8")
+            process_env = os.environ.copy()
+            process_env["BOUNDARYOS_CLI_DEPLOY_INTENT"] = json.dumps(
+                {"transaction_hash": tx_id}, separators=(",", ":"), ensure_ascii=True
+            )
+            process = subprocess.Popen(
+                _genlayer_command("deploy"),
+                cwd=workflow_dir,
+                env=process_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+            )
+            address_pattern = re.compile(r"0x[a-fA-F0-9]{40}")
+            ansi_pattern = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+            assert process.stdout is not None
+            for line in process.stdout:
+                clean = ansi_pattern.sub("", line)
+                if "BoundaryOS deployed contract address:" in clean:
+                    match = address_pattern.search(clean)
+                    if match:
+                        item["contract_address"] = match.group(0)
+                        item["address_observed_at"] = _now()
+                        self.checkpoint.save()
+            process.wait(timeout=900)
+        except subprocess.TimeoutExpired:
+            if process is not None:
+                process.kill()
+                process.wait(timeout=30)
+            raise TransportFailure("receipt-only deployment address recovery timed out")
+        finally:
+            if process is not None and process.poll() is None:
+                process.kill()
+                process.wait(timeout=30)
+            shutil.rmtree(workflow_dir, ignore_errors=True)
+        if not item.get("contract_address"):
+            raise RpcFailure("finalized deployment receipt did not include a contract address")
+
 
 def _as_json(value: Any) -> Any:
     if isinstance(value, str):
@@ -474,7 +1073,12 @@ def _as_json(value: Any) -> Any:
     return value
 
 
-def initialize_runtime(require_stable_signers: bool = False) -> tuple[Any, Any, str, list[Any], bool, bool]:
+def initialize_runtime(
+    require_stable_signers: bool = False,
+    signer_backend: str = "sdk",
+    cli_primary: str = "my-studionet-wallet",
+    cli_child: str = "bradbury-e2e",
+) -> tuple[Any, Any, str, list[Any], bool, bool, str]:
     """Load the configured Studionet signer without printing key material."""
     config_path = Path("gltest.config.yaml")
     general = get_general_config()
@@ -486,6 +1090,24 @@ def initialize_runtime(require_stable_signers: bool = False) -> tuple[Any, Any, 
     plugin.network_name = "studionet"
     plugin.rpc_url = network.url or RPC_URL
     general.plugin_config = plugin
+    if signer_backend == "cli":
+        account_result = _cli_run("account", "list")
+        cli_accounts, active_account = parse_cli_accounts(account_result.stdout)
+        primary = cli_accounts.get(cli_primary)
+        child = cli_accounts.get(cli_child)
+        if primary is None or not primary.unlocked:
+            raise VerificationError(f"named primary CLI account {cli_primary!r} is missing or locked")
+        if child is None or not child.unlocked:
+            raise VerificationError(f"named child CLI account {cli_child!r} is missing or locked")
+        if primary.address.lower() == child.address.lower():
+            raise VerificationError("primary and child CLI accounts must have different public addresses")
+        if active_account != cli_primary:
+            raise VerificationError(
+                f"CLI active account is {active_account!r}; select configured primary {cli_primary!r} before live verification"
+            )
+        client = create_client(chain=studionet, endpoint=plugin.rpc_url)
+        return primary, client, plugin.rpc_url, [primary, child], True, True, active_account
+
     raw_config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     raw_network = (raw_config.get("networks") or {}).get("studionet") or {}
     explicit_accounts = raw_network.get("accounts")
@@ -509,7 +1131,7 @@ def initialize_runtime(require_stable_signers: bool = False) -> tuple[Any, Any, 
         if not stable_child:
             missing.append(f"configure a second stable signer in networks.studionet.accounts or {CHILD_KEY_ENV}")
         raise VerificationError("live resumable writes require stable local signers; " + "; ".join(missing))
-    return account, client, plugin.rpc_url, accounts, stable_primary, stable_child
+    return account, client, plugin.rpc_url, accounts, stable_primary, stable_child, ""
 
 
 def inspect_existing(verifier: StudionetVerifier) -> dict[str, Any]:
@@ -550,30 +1172,66 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--contract", default=DEFAULT_CONTRACT)
     parser.add_argument("--rpc-url", default=None, help="RPC endpoint from official compatible tooling; defaults to configured Studionet RPC")
     parser.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT)
+    parser.add_argument("--deploy-source", type=Path, help="explicitly deploy this source once and checkpoint its transaction")
+    parser.add_argument("--deployment-checkpoint", type=Path, default=DEFAULT_DEPLOYMENT_CHECKPOINT)
     parser.add_argument("--inspect-existing", action="store_true", help="read-only inspect the known finalized proposal")
     parser.add_argument("--run-live-suite", action="store_true", help="explicitly permit live writes; never deploys")
     parser.add_argument("--resume-step", help="reconcile a previously checkpointed write step without sending any new transaction")
     parser.add_argument("--max-polls", type=int, default=30)
+    parser.add_argument(
+        "--signer-backend",
+        choices=("sdk", "cli"),
+        default=os.environ.get("BOUNDARYOS_SIGNER_BACKEND", "sdk"),
+        help="use SDK-configured keys or the installed GenLayer CLI's active keystore account",
+    )
+    parser.add_argument("--cli-primary", default=os.environ.get("BOUNDARYOS_CLI_PRIMARY", "my-studionet-wallet"))
+    parser.add_argument("--cli-child", default=os.environ.get("BOUNDARYOS_CLI_CHILD", "bradbury-e2e"))
     options = parser.parse_args(argv)
+    if options.deploy_source and (options.run_live_suite or options.inspect_existing or options.resume_step):
+        raise VerificationError("deployment is an explicit separate command; do not combine with inspection or suite writes")
+    if options.deploy_source and options.signer_backend != "cli":
+        raise VerificationError("checkpointed deployment requires --signer-backend cli")
     if options.resume_step and options.run_live_suite:
         raise VerificationError("--resume-step is read/reconcile-only and cannot be combined with --run-live-suite")
 
-    account, client, rpc_url, accounts, stable_primary, stable_child = initialize_runtime(
-        require_stable_signers=options.run_live_suite
+    account, client, rpc_url, accounts, stable_primary, stable_child, cli_active_account = initialize_runtime(
+        require_stable_signers=options.run_live_suite or options.deploy_source is not None,
+        signer_backend=options.signer_backend,
+        cli_primary=options.cli_primary,
+        cli_child=options.cli_child,
     )
     rpc_url = options.rpc_url or rpc_url
     if urlparse(rpc_url).scheme != "https" or not urlparse(rpc_url).netloc:
         raise VerificationError("RPC URL must be a valid HTTPS endpoint")
     verifier = None
+    if options.deploy_source:
+        deployment_source = options.deploy_source.resolve()
+        if not deployment_source.is_file():
+            raise VerificationError("deployment source file does not exist")
+        checkpoint_path = options.deployment_checkpoint
+        checkpoint_contract = DEPLOYMENT_CHECKPOINT_BINDING
+        source_fingerprint = hashlib.sha256(deployment_source.read_bytes()).hexdigest()
+    else:
+        deployment_source = None
+        checkpoint_path = options.checkpoint
+        checkpoint_contract = options.contract
+        source_fingerprint = hashlib.sha256(Path("contracts/boundary_os.py").read_bytes()).hexdigest()
     checkpoint = Checkpoint(
-        options.checkpoint,
-        options.contract,
+        checkpoint_path,
+        checkpoint_contract,
         account.address,
-        hashlib.sha256(Path("contracts/boundary_os.py").read_bytes()).hexdigest(),
+        source_fingerprint,
         bind_signer=stable_primary,
     )
     try:
-        verifier = StudionetVerifier(options.contract, checkpoint, account, client)
+        verifier = StudionetVerifier(
+            options.contract,
+            checkpoint,
+            account,
+            client,
+            cli_signing=options.signer_backend == "cli",
+            cli_active_account=cli_active_account,
+        )
         verifier.rpc_url = rpc_url
         actual_chain = int(verifier.rpc("eth_chainId", []), 16)
         if actual_chain != CHAIN_ID:
@@ -583,6 +1241,18 @@ def main(argv: list[str] | None = None) -> int:
         verifier.checkpoint.data["signer_nonce_pending"] = int(verifier.rpc("eth_getTransactionCount", [account.address, "pending"]), 16)
         verifier.checkpoint.save()
         verifier.emit("preflight", chain_id=actual_chain, contract=options.contract, signer=account.address, live_writes_enabled=options.run_live_suite)
+        if deployment_source is not None:
+            result = verifier.deploy_once(deployment_source, max_polls=options.max_polls)
+            verifier.emit(
+                "deployment_complete",
+                source_sha256=result.get("source_sha256"),
+                tx_id=result.get("tx_id"),
+                status=result.get("status"),
+                consensus_outcome=result.get("consensus_outcome"),
+                execution_result=result.get("execution_result"),
+                contract_address=result.get("contract_address"),
+            )
+            return 0
         if options.resume_step:
             result = verifier.reconcile(options.resume_step, max_polls=options.max_polls)
             if result is None:
@@ -705,9 +1375,7 @@ def run_live_suite(
 
         if not record:
             nonce = int(verifier.checkpoint.data.get("last_action_nonce") or 0) + 1
-            aid = verifier.read("preview_action_id", [policy_id, signer_address, nonce, action_json])
-            if not isinstance(aid, str) or len(aid) != 64:
-                raise VerificationError("preview_action_id did not return a 64-character digest")
+            aid = derive_action_id(policy_id, signer_address, nonce, action_json)
             record = {
                 "nonce": nonce,
                 "action_id": aid,
@@ -751,8 +1419,8 @@ def run_live_suite(
                 record["expired_action_id"] = aid
                 record["expired_at"] = expired_at
                 record["nonce"] = int(verifier.checkpoint.data.get("last_action_nonce") or record["nonce"]) + 1
-                record["action_id"] = verifier.read(
-                    "preview_action_id", [policy_id, signer_address, record["nonce"], action_json]
+                record["action_id"] = derive_action_id(
+                    policy_id, signer_address, record["nonce"], action_json
                 )
                 record["created_at"] = _now()
                 verifier.checkpoint.save()
@@ -932,6 +1600,13 @@ def run_live_suite(
     stale_consumable = verifier.read("can_consume_authorization", [stale_action_id, signer_address])
     if stale_consumable is not False:
         raise VerificationError("version-two receipt remained consumable after policy update")
+    verifier.checkpoint.data.setdefault("observations", {})["stale_receipt_invalidated"] = {
+        "action_id": stale_action_id,
+        "policy_version": 3,
+        "can_consume_after_update": stale_consumable,
+        "observed_at": _now(),
+    }
+    verifier.checkpoint.save()
 
     revoked_action_id = _prepare_action_only(
         verifier, policy_id, signer_address, "post_revoke_action", 1, policy["purpose"], max_polls
@@ -947,6 +1622,15 @@ def run_live_suite(
     revoked_receipt = _as_json(verifier.read("get_receipt", [revoked_action_id]))
     if not isinstance(revoked_receipt, dict) or revoked_receipt.get("decision") != "DENY_STALE_POLICY":
         raise VerificationError("revoked policy did not deny the pending proposal as stale")
+    verifier.checkpoint.data.setdefault("observations", {})["revocation_readback"] = {
+        "action_id": revoked_action_id,
+        "decision": revoked_receipt.get("decision"),
+        "receipt_digest_valid": revoked_receipt.get("receipt_digest") == hashlib.sha256(
+            _canonical({k: v for k, v in revoked_receipt.items() if k != "receipt_digest"})
+        ).hexdigest(),
+        "observed_at": _now(),
+    }
+    verifier.checkpoint.save()
     verifier.checkpoint.data["observations"]["live_suite_complete"] = {
         "status": "completed",
         "match_action_id": match_id,
@@ -983,7 +1667,7 @@ def _prepare_action_only(
         raise VerificationError(f"scenario {label} arguments changed since checkpoint creation")
     if not record:
         nonce = int(verifier.checkpoint.data.get("last_action_nonce") or 0) + 1
-        action_id = verifier.read("preview_action_id", [policy_id, signer_address, nonce, action_json])
+        action_id = derive_action_id(policy_id, signer_address, nonce, action_json)
         record = {"nonce": nonce, "action_id": action_id, "action_json_sha256": digest, "created_at": _now()}
         scenarios[label] = record
         verifier.checkpoint.save()
