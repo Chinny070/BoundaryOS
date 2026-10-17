@@ -39,7 +39,7 @@ jobs:
               --output "$archive"
           fi
           echo '4f0b358ec98ec148be9b95cdfb0f0e1a6cbe64da0194fdfac3fffc6f5d1d93e2  '"$archive" | sha256sum --check --status
-      - run: python -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py -q --tb=short
+      - run: python -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py tests/integration/test_boundary_consumer_proof.py -q --tb=short
       - run: genvm-lint lint contracts/boundary_os.py
       - run: genvm-lint check contracts/boundary_os.py --json
       - run: genvm-lint schema contracts/boundary_os.py
@@ -67,5 +67,5 @@ jobs:
       # file while stdin still holds it open; Windows refuses that unlink.
       # Linux runs the complete Direct Mode suite; this job validates the
       # Windows CLI harness helpers and repository configuration.
-      - run: python -m pytest tests/integration/test_studionet_resume_helpers.py -q --tb=short
+      - run: python -m pytest tests/integration/test_studionet_resume_helpers.py tests/integration/test_boundary_consumer_proof.py -q --tb=short
       - run: python scripts/check_release_config.py
