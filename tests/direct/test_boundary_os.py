@@ -54,14 +54,22 @@ def setup_contract(direct_vm, direct_deploy, agent, owner, consumer=None):
     contract = direct_deploy(CONTRACT)
     direct_vm.sender = contract.owner
     contract.admit_principal(address(owner))
-    direct_vm.sender = agent
-    contract.register_agent(address(owner))
+    register_authorized_agent(direct_vm, contract, owner, agent)
     direct_vm.sender = owner
     contract.create_policy("office", address(agent), policy())
     if consumer is not None:
         contract.authorize_consumer("office", address(consumer))
     direct_vm.sender = agent
     return contract
+
+
+def register_authorized_agent(direct_vm, contract, principal, agent):
+    principal_address = address(principal)
+    agent_address = address(agent)
+    direct_vm.sender = principal
+    contract.approve_agent_registration(agent_address)
+    direct_vm.sender = agent
+    contract.register_agent(principal_address)
 
 
 def submit_and_evaluate(direct_vm, contract, agent, nonce, payload=None):
@@ -80,8 +88,7 @@ def make_delegation_chain(direct_vm, contract, principal, root, descendants):
     parent_cap = 50
     scope = None
     for index, child in enumerate(descendants, start=1):
-        direct_vm.sender = child
-        contract.register_agent(address(principal))
+        register_authorized_agent(direct_vm, contract, principal, child)
         cap = parent_cap - 10
         scope = {
             "action_types": ["purchase"],
@@ -111,8 +118,7 @@ def test_only_the_principal_selected_by_the_agent_can_create_its_policy(direct_v
     contract = direct_deploy(CONTRACT)
     direct_vm.sender = contract.owner
     contract.admit_principal(address(direct_bob))
-    direct_vm.sender = direct_alice
-    contract.register_agent(address(direct_bob))
+    register_authorized_agent(direct_vm, contract, direct_bob, direct_alice)
     direct_vm.sender = direct_charlie
     with direct_vm.expect_revert("only the principal selected by the agent may create its policy"):
         contract.create_policy("office", address(direct_alice), policy())
@@ -206,8 +212,7 @@ def test_aggregate_bucket_cannot_reset_when_consensus_time_regresses(
 
 def test_policy_wide_aggregate_cap_spans_parent_and_delegated_child(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
     contract = setup_contract(direct_vm, direct_deploy, direct_alice, direct_bob)
-    direct_vm.sender = direct_charlie
-    contract.register_agent(address(direct_bob))
+    register_authorized_agent(direct_vm, contract, direct_bob, direct_charlie)
     direct_vm.sender = direct_alice
     scope = {
         "action_types": ["purchase"],
@@ -233,8 +238,7 @@ def test_delegated_child_authorization_and_receipt_consumption_happy_path(
     contract = setup_contract(
         direct_vm, direct_deploy, direct_alice, direct_bob, consumer=direct_charlie
     )
-    direct_vm.sender = direct_charlie
-    contract.register_agent(address(direct_bob))
+    register_authorized_agent(direct_vm, contract, direct_bob, direct_charlie)
     scope = {
         "action_types": ["purchase"],
         "max_amount": 25,
@@ -474,8 +478,7 @@ def test_four_delegation_edges_are_supported_and_fifth_is_rejected(direct_vm, di
     contract = setup_contract(direct_vm, direct_deploy, root, principal)
     leaf, _ = make_delegation_chain(direct_vm, contract, principal, root, accounts[2:6])
     next_child = accounts[6]
-    direct_vm.sender = next_child
-    contract.register_agent(address(principal))
+    register_authorized_agent(direct_vm, contract, principal, next_child)
     scope = {
         "action_types": ["purchase"], "max_amount": 5,
         "valid_from": 0, "valid_until": 3_000_000_000,
@@ -490,10 +493,8 @@ def test_child_cannot_escalate_amount_purpose_or_empty_time_window(direct_vm, di
     accounts = direct_accounts
     root, principal, child, grandchild = accounts[:4]
     contract = setup_contract(direct_vm, direct_deploy, root, principal)
-    direct_vm.sender = child
-    contract.register_agent(address(principal))
-    direct_vm.sender = grandchild
-    contract.register_agent(address(principal))
+    register_authorized_agent(direct_vm, contract, principal, child)
+    register_authorized_agent(direct_vm, contract, principal, grandchild)
     child_scope = {
         "action_types": ["purchase"], "max_amount": 30,
         "valid_from": 0, "valid_until": 3_000_000_000,
@@ -550,10 +551,8 @@ def test_expired_intermediate_delegation_blocks_descendant(direct_vm, direct_dep
     contract = setup_contract(direct_vm, direct_deploy, root, principal)
     middle = accounts[2]
     leaf = accounts[3]
-    direct_vm.sender = middle
-    contract.register_agent(address(principal))
-    direct_vm.sender = leaf
-    contract.register_agent(address(principal))
+    register_authorized_agent(direct_vm, contract, principal, middle)
+    register_authorized_agent(direct_vm, contract, principal, leaf)
     middle_scope = {
         "action_types": ["purchase"], "max_amount": 40,
         "valid_from": 0, "valid_until": 1_791_849_610,
@@ -596,8 +595,7 @@ def test_delegation_cycle_and_wrong_root_fail_closed(direct_vm, direct_deploy, d
 
 def test_child_delegation_cannot_widen_ancestor_scope(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
     contract = setup_contract(direct_vm, direct_deploy, direct_alice, direct_bob)
-    direct_vm.sender = direct_charlie
-    contract.register_agent(address(direct_bob))
+    register_authorized_agent(direct_vm, contract, direct_bob, direct_charlie)
     direct_vm.sender = direct_alice
     scope = {
         "action_types": ["purchase"],
@@ -617,8 +615,7 @@ def test_child_delegation_cannot_widen_ancestor_scope(direct_vm, direct_deploy, 
 
 def test_revoked_delegation_cannot_be_used(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
     contract = setup_contract(direct_vm, direct_deploy, direct_alice, direct_bob)
-    direct_vm.sender = direct_charlie
-    contract.register_agent(address(direct_bob))
+    register_authorized_agent(direct_vm, contract, direct_bob, direct_charlie)
     direct_vm.sender = direct_alice
     scope = {
         "action_types": ["purchase"],
@@ -638,8 +635,7 @@ def test_parent_cannot_reassign_a_child_who_selected_a_different_principal(direc
     contract = setup_contract(direct_vm, direct_deploy, direct_alice, direct_bob)
     direct_vm.sender = contract.owner
     contract.admit_principal(address(direct_charlie))
-    direct_vm.sender = direct_charlie
-    contract.register_agent(address(direct_charlie))
+    register_authorized_agent(direct_vm, contract, direct_charlie, direct_charlie)
     direct_vm.sender = direct_alice
     scope = {
         "action_types": ["purchase"],
@@ -711,12 +707,14 @@ def test_agent_registration_capacity_isolated_per_principal_and_reclaimable(
     contract.admit_principal(address(direct_bob))
     agents = [Account.create() for _ in range(9)]
     for agent in agents[:8]:
-        direct_vm.sender = agent.address
-        contract.register_agent(address(direct_bob))
+        register_authorized_agent(direct_vm, contract, direct_bob, agent.address)
 
     direct_vm.sender = agents[8].address
-    with direct_vm.expect_revert("principal agent capacity reached"):
+    with direct_vm.expect_revert("agent registration was not approved by this principal"):
         contract.register_agent(address(direct_bob))
+    direct_vm.sender = direct_bob
+    with direct_vm.expect_revert("principal agent capacity reached"):
+        contract.approve_agent_registration(agents[8].address)
 
     # A Sybil cannot self-admit a second principal. Owner admission opens an
     # isolated quota for that principal without changing the first quota.
@@ -725,7 +723,9 @@ def test_agent_registration_capacity_isolated_per_principal_and_reclaimable(
     direct_vm.sender = contract.owner
     contract.admit_principal(address(direct_charlie))
     direct_vm.sender = agents[8].address
-    contract.register_agent(address(direct_charlie))
+    with direct_vm.expect_revert("agent registration was not approved by this principal"):
+        contract.register_agent(address(direct_charlie))
+    register_authorized_agent(direct_vm, contract, direct_charlie, agents[8].address)
     assert int(contract.principal_agent_count[to_checksum_address(address(direct_bob))]) == 8
 
     # The registering agent can release an unused slot; another address can
@@ -733,9 +733,48 @@ def test_agent_registration_capacity_isolated_per_principal_and_reclaimable(
     direct_vm.sender = agents[0].address
     contract.unregister_agent(address(agents[0].address))
     replacement = Account.create()
-    direct_vm.sender = replacement.address
-    contract.register_agent(address(direct_bob))
+    register_authorized_agent(direct_vm, contract, direct_bob, replacement.address)
     assert int(contract.principal_agent_count[to_checksum_address(address(direct_bob))]) == 8
+
+
+def test_pending_agent_approvals_are_bounded_cancelable_and_isolated_per_principal(
+    direct_vm, direct_deploy, direct_bob, direct_charlie
+):
+    contract = direct_deploy(CONTRACT)
+    direct_vm.sender = contract.owner
+    contract.admit_principal(address(direct_bob))
+    contract.admit_principal(address(direct_charlie))
+    agents = [Account.create() for _ in range(10)]
+
+    direct_vm.sender = direct_bob
+    for agent in agents[:8]:
+        contract.approve_agent_registration(agent.address)
+    with direct_vm.expect_revert("principal agent capacity reached"):
+        contract.approve_agent_registration(agents[8].address)
+
+    direct_vm.sender = agents[9].address
+    with direct_vm.expect_revert("only the approving principal or contract owner may cancel registration"):
+        contract.cancel_agent_registration(agents[1].address)
+
+    direct_vm.sender = direct_bob
+    contract.cancel_agent_registration(agents[0].address)
+    contract.approve_agent_registration(agents[8].address)
+    direct_vm.sender = agents[8].address
+    contract.register_agent(address(direct_bob))
+
+    direct_vm.sender = direct_charlie
+    with direct_vm.expect_revert("agent registration was not approved by this principal"):
+        contract.register_agent(address(direct_charlie))
+    with direct_vm.expect_revert("agent registration is already approved by another principal"):
+        contract.approve_agent_registration(agents[1].address)
+    direct_vm.sender = agents[9].address
+    with direct_vm.expect_revert("only an admitted principal may approve an agent"):
+        contract.approve_agent_registration(agents[9].address)
+
+    direct_vm.sender = contract.owner
+    contract.cancel_agent_registration(agents[1].address)
+    assert int(contract.pending_agent_count) == 6
+    assert int(contract.principal_pending_agent_count[to_checksum_address(address(direct_bob))]) == 6
 
 
 def test_global_principal_admission_slots_are_reclaimed_only_after_empty_exit(
@@ -751,9 +790,14 @@ def test_global_principal_admission_slots_are_reclaimed_only_after_empty_exit(
 
     # Register state under the first principal before trying to release it.
     direct_vm.sender = principals[0].address
+    contract.approve_agent_registration(principals[0].address)
+    direct_vm.sender = contract.owner
+    with direct_vm.expect_revert("principal still owns agent registrations or policies"):
+        contract.remove_principal(principals[0].address)
+    direct_vm.sender = principals[0].address
     contract.register_agent(principals[0].address)
     direct_vm.sender = contract.owner
-    with direct_vm.expect_revert("principal still owns registered agents or policies"):
+    with direct_vm.expect_revert("principal still owns agent registrations or policies"):
         contract.remove_principal(principals[0].address)
 
     direct_vm.sender = principals[0].address
@@ -774,13 +818,11 @@ def test_policy_capacity_released_after_expiry_agent_and_policy_reclamation(
     contract.admit_principal(owner)
     agent_accounts = [Account.create() for _ in range(5)]
     for index, account in enumerate(agent_accounts[:4]):
-        direct_vm.sender = account.address
-        contract.register_agent(owner)
+        register_authorized_agent(direct_vm, contract, direct_bob, account.address)
         direct_vm.sender = direct_bob
         contract.create_policy(f"tenant-policy-{index}", address(account.address), policy())
 
-    direct_vm.sender = agent_accounts[4].address
-    contract.register_agent(owner)
+    register_authorized_agent(direct_vm, contract, direct_bob, agent_accounts[4].address)
     direct_vm.sender = direct_bob
     with direct_vm.expect_revert("principal policy capacity reached"):
         contract.create_policy("tenant-policy-over-cap", address(agent_accounts[4].address), policy())
@@ -793,10 +835,10 @@ def test_policy_capacity_released_after_expiry_agent_and_policy_reclamation(
     old_action_id = contract.preview_action_id(
         "tenant-policy-0", address(agent_accounts[0].address), 1, action()
     )
+    direct_vm.sender = direct_bob
     contract.unregister_agent(address(agent_accounts[0].address))
     contract.reclaim_policy("tenant-policy-0")
-    direct_vm.sender = agent_accounts[0].address
-    contract.register_agent(owner)
+    register_authorized_agent(direct_vm, contract, direct_bob, agent_accounts[0].address)
     direct_vm.sender = direct_bob
     contract.create_policy(
         "tenant-policy-0",

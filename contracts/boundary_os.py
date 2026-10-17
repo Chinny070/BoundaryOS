@@ -70,6 +70,7 @@ class BoundaryOS(gl.Contract):
     owner: Address
     emergency_frozen: bool
     agents: TreeMap[str, str]
+    pending_agent_principal: TreeMap[str, str]
     agent_policy: TreeMap[str, str]
     frozen_agents: TreeMap[str, bool]
     policies: TreeMap[str, str]
@@ -80,11 +81,13 @@ class BoundaryOS(gl.Contract):
     delegations: TreeMap[str, str]
     delegation_count: u64
     agent_count: u64
+    pending_agent_count: u64
     policy_count: u64
     action_count: u64
     policy_action_count: TreeMap[str, u64]
     active_action_by_agent: TreeMap[str, u64]
     principal_agent_count: TreeMap[str, u64]
+    principal_pending_agent_count: TreeMap[str, u64]
     principal_policy_count: TreeMap[str, u64]
     policy_agent_count: TreeMap[str, u64]
     agent_child_count: TreeMap[str, u64]
@@ -106,6 +109,7 @@ class BoundaryOS(gl.Contract):
         self.owner = gl.message.sender_address
         self.emergency_frozen = False
         self.agent_count = u64(0)
+        self.pending_agent_count = u64(0)
         self.policy_count = u64(0)
         self.delegation_count = u64(0)
         self.action_count = u64(0)
@@ -342,9 +346,10 @@ class BoundaryOS(gl.Contract):
             raise gl.vm.UserError("only the principal or contract owner may remove admission")
         if (
             int(self.principal_agent_count.get(principal, u64(0))) != 0
+            or int(self.principal_pending_agent_count.get(principal, u64(0))) != 0
             or int(self.principal_policy_count.get(principal, u64(0))) != 0
         ):
-            raise gl.vm.UserError("principal still owns registered agents or policies")
+            raise gl.vm.UserError("principal still owns agent registrations or policies")
         del self.admitted_principals[principal]
         self.principal_count = u64(max(0, int(self.principal_count) - 1))
 
@@ -354,6 +359,46 @@ class BoundaryOS(gl.Contract):
         return self.admitted_principals.get(principal, False)
 
     @gl.public.write
+    def approve_agent_registration(self, agent_address: str) -> None:
+        principal = self._address(str(gl.message.sender_address), "principal_address")
+        agent = self._address(agent_address, "agent_address")
+        if not self.admitted_principals.get(principal, False):
+            raise gl.vm.UserError("only an admitted principal may approve an agent")
+        if self.agents.get(agent, ZERO) != ZERO:
+            raise gl.vm.UserError("agent is already registered")
+        approved_principal = self.pending_agent_principal.get(agent, ZERO)
+        if approved_principal == principal:
+            return
+        if approved_principal != ZERO:
+            raise gl.vm.UserError("agent registration is already approved by another principal")
+        principal_agents = int(self.principal_agent_count.get(principal, u64(0)))
+        principal_pending = int(self.principal_pending_agent_count.get(principal, u64(0)))
+        if principal_agents + principal_pending >= MAX_AGENTS_PER_PRINCIPAL:
+            raise gl.vm.UserError("principal agent capacity reached")
+        if int(self.agent_count) + int(self.pending_agent_count) >= MAX_AGENTS:
+            raise gl.vm.UserError("agent registry capacity reached")
+        self.pending_agent_principal[agent] = principal
+        self.pending_agent_count = u64(int(self.pending_agent_count) + 1)
+        self.principal_pending_agent_count[principal] = u64(principal_pending + 1)
+
+    @gl.public.write
+    def cancel_agent_registration(self, agent_address: str) -> None:
+        agent = self._address(agent_address, "agent_address")
+        principal = self.pending_agent_principal.get(agent, ZERO)
+        if principal == ZERO:
+            raise gl.vm.UserError("agent registration is not pending")
+        sender = str(gl.message.sender_address).lower()
+        if sender not in (principal.lower(), str(self.owner).lower()):
+            raise gl.vm.UserError("only the approving principal or contract owner may cancel registration")
+        del self.pending_agent_principal[agent]
+        self.pending_agent_count = u64(max(0, int(self.pending_agent_count) - 1))
+        remaining = max(0, int(self.principal_pending_agent_count.get(principal, u64(0))) - 1)
+        if remaining:
+            self.principal_pending_agent_count[principal] = u64(remaining)
+        elif principal in self.principal_pending_agent_count:
+            del self.principal_pending_agent_count[principal]
+
+    @gl.public.write
     def register_agent(self, principal_address: str) -> None:
         agent = str(gl.message.sender_address)
         if self.agents.get(agent, ZERO) != ZERO:
@@ -361,11 +406,22 @@ class BoundaryOS(gl.Contract):
         principal = self._address(principal_address, "principal_address")
         if not self.admitted_principals.get(principal, False):
             raise gl.vm.UserError("principal is not admitted")
+        if self.pending_agent_principal.get(agent, ZERO) != principal:
+            raise gl.vm.UserError("agent registration was not approved by this principal")
         if int(self.agent_count) >= MAX_AGENTS:
             raise gl.vm.UserError("agent registry capacity reached")
         principal_count = int(self.principal_agent_count.get(principal, u64(0)))
         if principal_count >= MAX_AGENTS_PER_PRINCIPAL:
             raise gl.vm.UserError("principal agent capacity reached")
+        del self.pending_agent_principal[agent]
+        self.pending_agent_count = u64(max(0, int(self.pending_agent_count) - 1))
+        remaining_pending = max(
+            0, int(self.principal_pending_agent_count.get(principal, u64(0))) - 1
+        )
+        if remaining_pending:
+            self.principal_pending_agent_count[principal] = u64(remaining_pending)
+        elif principal in self.principal_pending_agent_count:
+            del self.principal_pending_agent_count[principal]
         self.agents[agent] = principal
         self.agent_count = u64(int(self.agent_count) + 1)
         self.principal_agent_count[principal] = u64(principal_count + 1)

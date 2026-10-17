@@ -35,7 +35,8 @@
       "deployed_body_sha256": "05a1cde5cfe1b4c0a741791d7d98b2a53f4289bbf79beb9e8acff2f70a54ea5d",
       "repository_file_sha256": "77c07245b23c77cf7d6a286df92e4a3f99d0ffc89fefbe603e87c979ef5dfbc9",
       "note": "Explorer pages returned HTTP 200. The deployment transaction page's static HTML exposed the transaction hash but not contract-address mapping; finality and source parity were verified through RPC and CLI retrieval."
-    }
+    },
+    "source_status": "historical_pre_agent_approval_correction; current repository source differs and is not deployed"
   },
   "last_verified_deployment": {
     "network": "GenLayer Studionet",
@@ -47,6 +48,7 @@
     "note": "Historical, fully verified deployment for its frozen source. It is not source-identical to the resource-lifecycle candidate."
   },
   "changes_under_test": [
+    "Principal-approved, exact-address agent registration prevents unauthorized Sybil addresses from consuming agent slots; pending approval slots are bounded and cancelable.",
     "Owner-controlled admission bounds principal identities to 16.",
     "Per-principal limits bound active agents to 8 and active policies to 4.",
     "Expired proposal slots can be reclaimed without resetting the agent nonce.",
@@ -285,12 +287,33 @@
   "readiness": {
     "status": "not_submission_ready",
     "required_next_gates": [
-      "Resolve or safely retire the primary signer's nonce-2686 ambiguity without replacing or duplicating an unknown transaction.",
-      "Run the candidate's semantic ALLOW/DENY, receipt consumption/replay, freeze/revocation, delegation happy path, and aggregate quota suite with independent finalized-state readbacks.",
-      "Run the resource-exhaustion regression scenarios live or state clearly why Studionet coverage is unavailable.",
-      "Exercise the deployed consumer fixture's child-error recovery and repeated completion behavior.",
-      "Rerun full Linux CI after the cross-checkpoint nonce guard and publish the committed evidence."
-    ]
+      "Pass current-source Linux Direct Mode CI and Windows helper CI after the registration approval change.",
+      "Deploy the corrected source using a signer whose nonce history can be reconciled, then verify finality and deployed-source parity.",
+      "Run candidate semantic ALLOW/DENY, receipt lifecycle/replay, revocation/freeze, delegated-child lifecycle, quota, and live reclamation scenarios with finalized-state readbacks.",
+      "Exercise the deployed consumer fixture child-error recovery and repeated completion behavior."
+    ],
+    "reason": "The deployed instance predates the principal-approved agent-registration correction. The corrected source is not deployed. The existing primary signer has a hashless unresolved intent at nonce 2686, and available Studionet RPC/CLI interfaces cannot authoritatively reconcile it; do not reuse that signer nonce or treat the pre-correction deployment as evidence for the corrected source."
   },
-  "evidence_provenance": "CALLER_ASSERTED"
+  "evidence_provenance": "CALLER_ASSERTED",
+  "current_source_correction": {
+    "path": "contracts/boundary_os.py",
+    "sha256": "7fc5610a160d0094eac3158680fc93237e792a3cc6a9a30e60441e9fde7fb627",
+    "deployed": false,
+    "finding": "An arbitrary sender could self-register under any admitted principal and consume its bounded agent slots without that principal approving the address.",
+    "mitigation": "Admitted principals approve exact agent addresses; pending approvals reserve bounded per-principal and global capacity; approved addresses self-register; principal or contract owner can cancel pending approvals.",
+    "local_validation": {
+      "compileall": "passed",
+      "genvm_lint": "passed, 3 checks",
+      "sdk_validation": "passed, 31 methods (10 views, 21 writes)",
+      "schema": "passed, 31 methods",
+      "typecheck": "passed",
+      "helper_tests": "19 passed",
+      "direct_mode": "not locally executed; Windows gltest temp-file unlink fails before contract load (WinError 32)",
+      "github_ci": "pending for corrected source"
+    }
+  },
+  "blocked_scenarios": [
+    "corrected-source live deployment and source-parity verification",
+    "principal-approved agent registration under genuine Studionet consensus"
+  ]
 }

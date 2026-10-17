@@ -2,13 +2,13 @@
 
 BoundaryOS is a standalone GenLayer Intelligent Contract for checking whether an authenticated agent's proposed action fits a principal's current delegation policy. It combines deterministic permission and quota checks with an independently repeated semantic purpose judgment, then stores an action-bound, version-bound receipt.
 
-**Release status:** The resource-lifecycle candidate is deployed on Studionet at `0x7d59607d8E42Cf20e6c6988DdfFe17514D11B4FB`, finalized and source-parity verified. Three setup transactions finalized, and finalized reads confirm the admitted principal, registered agent, and policy. The live acceptance matrix stopped at a hashless `authorize_consumer` attempt using primary signer nonce 2686; the attempt remains unresolved, so no further writes were issued with that signer. Semantic authorization, receipt lifecycle, delegation, revocation/freeze, quota, and consumer-composability acceptance checks remain incomplete. The previous fully exercised deployment at `0xb95a995A42E68455223DCC05403c98fDf40657FB` refers to older source and is not parity-equivalent to the candidate. Current evidence and blockers are in [resource lifecycle evidence](docs/evidence/resource-lifecycle-candidate.json) and [Deployment](docs/DEPLOYMENT.md). Evidence provenance remains `CALLER_ASSERTED`.
+**Release status:** A source review found that an arbitrary address could self-register against any admitted principal and consume its bounded agent slots. The current source now requires a principal to approve each agent address before self-registration, with bounded and cancelable pending approvals. The Studionet instance at `0x7d59607d8E42Cf20e6c6988DdfFe17514D11B4FB` runs the earlier source and does not contain this correction; its historical source parity remains valid only for that earlier commit. The primary signer also has a hashless unresolved write intent at nonce 2686. No corrected-source deployment or candidate acceptance writes have been made. See [resource lifecycle evidence](docs/evidence/resource-lifecycle-candidate.json) and [Deployment](docs/DEPLOYMENT.md). Evidence provenance remains `CALLER_ASSERTED`.
 
 ## What the contract protects
 
 The contract can protect only actions whose consumers check BoundaryOS. It does not stop an unrelated off-chain agent from acting, prove the truth of caller-submitted evidence, or establish malicious intent.
 
-The contract owner admits a bounded set of principals. Admitted principals authorize only agents that first register themselves. Active agent and policy quotas are partitioned per principal; revoked or expired state can be reclaimed after its live references are cleared. Each policy has immutable numbered versions and a canonical SHA-256 commitment. Agents submit bounded action facts with a strictly increasing nonce. Deterministic code enforces owner identity, action scope, hard denies, integer amount and unit constraints, aggregate quotas, validity windows, freezes, delegation depth/subsets, revocation, policy freshness, and receipt consumption. Only an action that passes those gates reaches GenLayer's semantic evaluator.
+The contract owner admits a bounded set of principals. Each principal approves exact agent addresses before those agents can self-register. Pending approvals reserve the same bounded per-principal and global slots as registered agents, and can be canceled by the approving principal or contract owner. Active agent and policy quotas are partitioned per principal; revoked or expired state can be reclaimed after its live references are cleared. Each policy has immutable numbered versions and a canonical SHA-256 commitment. Agents submit bounded action facts with a strictly increasing nonce. Deterministic code enforces owner identity, action scope, hard denies, integer amount and unit constraints, aggregate quotas, validity windows, freezes, delegation depth/subsets, revocation, policy freshness, and receipt consumption. Only an action that passes those gates reaches GenLayer's semantic evaluator.
 
 Evidence is explicitly `CLAIM_ONLY`: the action's purpose and evidence text are assertions supplied by the caller. Every validator sees the same bounded claims, but this contract does not fetch or authenticate external records. Consumers must not treat a receipt as proof that the claim is true.
 
@@ -16,7 +16,7 @@ Evidence is explicitly `CLAIM_ONLY`: the action's purpose and evidence text are 
 
 `contracts/boundary_os.py` is the single canonical deployable contract.
 
-1. An agent registers from its own sender address and selects the principal it accepts.
+1. The deployer admits the principal. That principal calls `approve_agent_registration(agent_address)`, then the approved agent registers from its own sender address and selects the principal it accepts. The principal or contract owner can cancel a pending approval to release its reserved slot.
 2. A principal creates a typed policy for that registered agent.
 3. Authorized agents may delegate within the parent's exact action, amount, purpose, and time bounds. Chains are limited to four levels.
 4. An agent submits an action with a monotonically increasing nonce. Its ID commits to policy ID and instance generation, agent, nonce, and canonical action facts, so reclaimed policy IDs do not collide with old proposals. The proposal expires after ten minutes.
@@ -31,7 +31,8 @@ Policy-wide amount aggregation is shared across agents and their descendants for
 | Method | Purpose |
 |---|---|
 | `admit_principal(principal_address)` / `remove_principal(principal_address)` | Deployer allocates a bounded principal slot; an empty principal can release it |
-| `register_agent(principal_address)` / `unregister_agent(agent_address)` | Agent opts in from its own address and selects one principal; safely unregisters after policy/action cleanup |
+| `approve_agent_registration(agent_address)` / `cancel_agent_registration(agent_address)` | Principal reserves a bounded slot for an exact agent address; principal or owner can release a pending approval |
+| `register_agent(principal_address)` / `unregister_agent(agent_address)` | Approved agent opts in from its own address and selects one principal; safely unregisters after policy/action cleanup |
 | `create_policy(policy_id, agent_address, policy_json)` | Principal creates immutable version 1 |
 | `update_policy(policy_id, policy_json)` | Principal appends a new immutable version |
 | `delegate_authority(...)` / `revoke_delegation(...)` | Bounded, non-escalating agent delegation |

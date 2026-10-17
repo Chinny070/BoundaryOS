@@ -1656,6 +1656,13 @@ def run_live_suite(
         raise VerificationError("get_agent returned malformed state")
     if not agent.get("registered"):
         verifier.write_once(
+            "setup.approve_root_agent",
+            "approve_agent_registration",
+            [signer_address],
+            signer=account,
+            max_polls=max_polls,
+        )
+        verifier.write_once(
             "setup.register_agent",
             "register_agent",
             [signer_address],
@@ -2363,6 +2370,13 @@ def _verify_delegation_boundary(
         raise VerificationError("no configured, unregistered secondary signer is available for delegation testing")
     child_state = _as_json(verifier.read("get_agent", [child.address]))
     if not child_state.get("registered"):
+        verifier.write_once(
+            "delegation.approve_child_registration",
+            "approve_agent_registration",
+            [child.address],
+            max_polls=max_polls,
+            signer=parent,
+        )
         verifier.write_once(
             "delegation.register_child",
             "register_agent",

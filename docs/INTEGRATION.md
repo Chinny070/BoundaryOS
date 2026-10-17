@@ -42,9 +42,9 @@ Action/evidence JSON is bounded. The stable action ID commits to policy ID and i
 
 ## Lifecycle
 
-1. The deployer admits the principal with `admit_principal(principal_address)`; admission is bounded and owner-controlled. The agent then calls `register_agent(principal_address)` from its own address, selecting the principal that may create its policy. A child must select the same principal as its delegating parent.
+1. The deployer admits the principal with `admit_principal(principal_address)`; admission is bounded and owner-controlled. The principal calls `approve_agent_registration(agent_address)` for each intended agent. That exact address then calls `register_agent(principal_address)` from its own address. Pending approvals reserve capacity and can be canceled by the approving principal or contract owner. A child must be approved by the same principal and select that principal when it registers.
 2. The principal calls `create_policy(...)` for that registered agent.
-3. Each child agent registers itself. Its parent calls `delegate_authority(...)` with a scope no broader than its own. A child can further delegate within the inherited bounds.
+3. The principal approves each child agent registration before the child registers itself. Its parent calls `delegate_authority(...)` with a scope no broader than its own. A child can further delegate within the inherited bounds.
 4. The principal authorizes consumer contract addresses with `authorize_consumer(...)`.
 5. The agent calls `preview_action_id(...)` to compute the stable ID, then calls `submit_action(policy_id, nonce, action_json)`. The GenLayer write API returns a transaction receipt, so the ID is previewed instead of relying on a method return value in that receipt.
 6. The proposing agent calls `evaluate_action(action_id)`. Wait for the GenLayer transaction to finalize. Protocol-level disagreement is not a receipt.
