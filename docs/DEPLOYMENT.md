@@ -55,7 +55,7 @@ After adding secret-redacted CLI failure diagnostics, the local checks were:
 | SDK validation | Passed, 31 methods: 10 views and 21 writes |
 | GenVM schema | Passed, 31 methods |
 | GenVM typecheck | Passed |
-| GitHub Actions before the latest diagnostics-only helper change | Passed on `b7ecf5d9a14f7e64391e3d921398763aa2c1ea34`: Linux tests and GenVM checks; Windows helper tests and release configuration. |
+| GitHub Actions | [Run 39016951218](https://github.com/Chinny070/BoundaryOS/actions/runs/39016951218) passed on `3481f844399fc0fdbda81ed89400fa5d0b09d9a8`: Linux 70 tests (50 Direct Mode, 20 helpers), contract and consumer GenVM lint/SDK/schema/typecheck and release configuration; Windows 20 helpers and release configuration. |
 
 The system `genvm-lint` shim failed to fetch SDK metadata under sandbox networking (`WinError 10013`); the pinned `.venv-release` runner completed validation. The Windows Direct Mode runner has previously failed before contract execution because `gltest` attempted to unlink a locked temporary file (`WinError 32`). No security protections were disabled.
 

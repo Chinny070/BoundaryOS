@@ -582,7 +582,14 @@
     "contract_sdk_check": "passed with pinned .venv-release GenVM runner v0.2.16; 31 methods, 10 views, 21 writes",
     "contract_schema": "passed, 31 methods",
     "contract_typecheck": "passed",
-    "github_ci": "passed for b7ecf5d9a14f7e64391e3d921398763aa2c1ea34; Linux 69 tests and GenVM validations, Windows 19 helper tests and release config"
+    "github_ci": {
+      "commit": "3481f844399fc0fdbda81ed89400fa5d0b09d9a8",
+      "run_id": 39016951218,
+      "url": "https://github.com/Chinny070/BoundaryOS/actions/runs/39016951218",
+      "status": "passed",
+      "linux": "70 tests passed (50 Direct Mode and 20 helper tests); contract and consumer fixture GenVM lint, SDK validation, schema, and typecheck passed; release configuration passed",
+      "windows": "20 helper tests passed; release configuration passed"
+    }
   },
   "limitations": [
     "CALLER_ASSERTED evidence is supplied by the caller and is not externally authenticated by the contract.",
