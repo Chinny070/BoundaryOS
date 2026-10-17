@@ -594,6 +594,14 @@
     "contract_typecheck": "passed",
     "consumer_typecheck": "passed",
     "windows_direct_mode": "blocked before contract execution: 50 tests failed at gltest direct loader os.unlink with WinError 32 because its stdin temp file remains open; 30 helper/proof tests passed",
+    "github_ci": {
+      "commit": "a7bc927",
+      "run_id": 39061803621,
+      "url": "https://github.com/Chinny070/BoundaryOS/actions/runs/39061803621",
+      "status": "passed",
+      "linux": "80 tests passed (50 Direct Mode, 20 harness helpers, 10 consumer proof); contract and consumer GenVM lint, SDK validation, schema, and typecheck passed; release configuration passed",
+      "windows": "30 harness and consumer proof tests passed; release configuration passed"
+    },
     "security_controls_changed": false
   },
   "completed_live_scenarios": [
