@@ -791,7 +791,7 @@ def test_policy_capacity_released_after_expiry_agent_and_policy_reclamation(
         contract.reclaim_policy("tenant-policy-0")
     direct_vm.warp("2100-01-01T00:00:00Z")
     old_action_id = contract.preview_action_id(
-        "tenant-policy-0", address(agent_accounts[0].address), 1, json.dumps(action())
+        "tenant-policy-0", address(agent_accounts[0].address), 1, action()
     )
     contract.unregister_agent(address(agent_accounts[0].address))
     contract.reclaim_policy("tenant-policy-0")
@@ -804,7 +804,7 @@ def test_policy_capacity_released_after_expiry_agent_and_policy_reclamation(
         policy(valid_until=4_500_000_000),
     )
     new_action_id = contract.preview_action_id(
-        "tenant-policy-0", address(agent_accounts[0].address), 1, json.dumps(action())
+        "tenant-policy-0", address(agent_accounts[0].address), 1, action()
     )
     assert old_action_id != new_action_id
     assert int(contract.principal_policy_count[owner]) == 4

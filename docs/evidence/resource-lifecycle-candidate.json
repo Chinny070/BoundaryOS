@@ -82,6 +82,19 @@
           "disposition": "test setup representations corrected in the following candidate commit"
         },
         "windows_result": "passed helper tests and release configuration"
+      },
+      {
+        "run_id": 39007742692,
+        "commit": "9961ba59025a5b325bc52d206aa2c0e072f2d636",
+        "url": "https://github.com/Chinny070/BoundaryOS/actions/runs/39007742692",
+        "linux_result": {
+          "passed": 66,
+          "failed": 1,
+          "status": "failed",
+          "failure_class": "test double-encoded action JSON in a preview_action_id assertion",
+          "disposition": "test argument corrected in following candidate commit"
+        },
+        "windows_result": "passed helper tests and release configuration"
       }
     ],
     "genvm": {
