@@ -80,6 +80,25 @@
     },
     "github_actions_runs": [
       {
+        "run_id": 39011945240,
+        "commit": "03447b9ba09bced9ab151bc7212b423d7bcd8c82",
+        "url": "https://github.com/Chinny070/BoundaryOS/actions/runs/39011945240",
+        "linux_result": {
+          "direct_and_helpers": "69 passed in 56.04s (50 Direct Mode, 19 helper tests)",
+          "genvm_lint": "passed, 3 checks",
+          "sdk_validation": "passed, 31 methods (10 views, 21 writes)",
+          "schema": "passed, 31 methods",
+          "typecheck": "passed",
+          "release_configuration": "passed",
+          "status": "passed"
+        },
+        "windows_result": {
+          "helper_tests": "19 passed",
+          "release_configuration": "passed",
+          "status": "passed"
+        }
+      },
+      {
         "run_id": 39010619404,
         "commit": "def8489d1fa26680ad16abbc3711ed1214403012",
         "url": "https://github.com/Chinny070/BoundaryOS/actions/runs/39010619404",
@@ -287,8 +306,7 @@
   "readiness": {
     "status": "not_submission_ready",
     "required_next_gates": [
-      "Pass current-source Linux Direct Mode CI and Windows helper CI after the registration approval change.",
-      "Deploy the corrected source using a signer whose nonce history can be reconciled, then verify finality and deployed-source parity.",
+      "Deploy the corrected source using a signer whose transaction history can be reconciled, then verify finality and deployed-source parity.",
       "Run candidate semantic ALLOW/DENY, receipt lifecycle/replay, revocation/freeze, delegated-child lifecycle, quota, and live reclamation scenarios with finalized-state readbacks.",
       "Exercise the deployed consumer fixture child-error recovery and repeated completion behavior."
     ],
@@ -308,9 +326,14 @@
       "schema": "passed, 31 methods",
       "typecheck": "passed",
       "helper_tests": "19 passed",
-      "direct_mode": "not locally executed; Windows gltest temp-file unlink fails before contract load (WinError 32)",
-      "github_ci": "pending for corrected source"
-    }
+      "direct_mode": "passed in Linux CI: 50 passed; local Windows attempt fails before contract load due gltest locked temp-file unlink (WinError 32)",
+      "github_ci": "pending for corrected source",
+      "linux_ci": "passed, 69 total (50 Direct Mode and 19 helper tests)",
+      "windows_ci": "passed, 19 helper tests and release configuration",
+      "github_actions_run": "https://github.com/Chinny070/BoundaryOS/actions/runs/39011945240",
+      "github_actions_run_id": 39011945240
+    },
+    "source_commit": "03447b9ba09bced9ab151bc7212b423d7bcd8c82"
   },
   "blocked_scenarios": [
     "corrected-source live deployment and source-parity verification",
