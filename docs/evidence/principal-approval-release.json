@@ -544,12 +544,57 @@
   "readback": {
     "source": "official Python SDK TransactionHashVariant.LATEST_FINAL",
     "delegated_child_agent": "registered, unfrozen, policy_id resume-bae7e839d8ac",
-    "delegation": "root-to-child bounded delegation present and not revoked",
+    "delegation": "root-to-child bounded delegation present and not revoked, but expired at 2026-10-17T08:53:46Z",
     "child_action": "EVALUATED ALLOW/MATCH",
     "child_receipt_digest_valid": true,
+    "child_receipt_expired_at": "2026-10-17T08:05:42Z",
+    "child_receipt_consumed": false,
+    "consumer_operation_completed": false,
     "semantic_match_receipt": "consumed; digest remains valid after consumption",
     "semantic_mismatch_receipt": "DENY_PURPOSE/MISMATCH; digest valid",
     "hard_deny_receipt": "DENY_HARD_RULE/NOT_EVALUATED; digest valid"
+  },
+  "follow_up_finalized_state_inspection": {
+    "observed_at": "2026-10-17T19:05:47Z",
+    "read_method": "official Python SDK typed reads at TransactionHashVariant.LATEST_FINAL",
+    "policy_instance": 1,
+    "consumer_agent_registered": true,
+    "consumer_agent_frozen": false,
+    "delegation_revoked": false,
+    "delegation_expired": true,
+    "old_action_state": "EVALUATED",
+    "old_receipt_expired": true,
+    "old_receipt_consumed": false,
+    "consumer_operation_completed": false,
+    "clean_signer": "fairmod-stage2h-test",
+    "clean_signer_admitted_as_principal": false,
+    "clean_signer_registered_as_agent": false,
+    "writes_broadcast": 0,
+    "nonce_441_disposition": "still unknown; not retried"
+  },
+  "consumer_source_correction": {
+    "local_source_sha256": "1568bec190865fd67ec529a9130aeab0e0a80876d94e0ca5bb55489dccccaae",
+    "deployed_source_sha256": "850e271a6ad274551183484b5a219eb8130322bb3070cab70cce5dd6e3f8ecbc",
+    "deployed_parity": false,
+    "change": "declares the typed consume_authorization child write; verifies the finalized receipt digest, consumer, action, chain, BoundaryOS address and ALLOW/consumed state; permits completion after original expiry only while that proof remains available",
+    "local_regression_tests": "10 passed",
+    "live_deployment_or_behavior_claimed": false
+  },
+  "follow_up_local_validation": {
+    "recorded_at": "2026-10-17T19:05:47Z",
+    "helper_and_consumer_proof_tests": "30 passed (20 harness helpers, 10 consumer receipt-proof tests)",
+    "compileall": "passed",
+    "release_config_and_frozen_source_identity": "passed",
+    "contract_and_consumer_lint": "passed, 3 checks each",
+    "pinned_genvm_runner": "v0.2.16",
+    "contract_sdk_validation": "passed, 31 methods",
+    "consumer_sdk_validation": "passed, 8 methods",
+    "contract_schema": "passed, 31 methods",
+    "consumer_schema": "passed, 8 methods",
+    "contract_typecheck": "passed",
+    "consumer_typecheck": "passed",
+    "windows_direct_mode": "blocked before contract execution: 50 tests failed at gltest direct loader os.unlink with WinError 32 because its stdin temp file remains open; 30 helper/proof tests passed",
+    "security_controls_changed": false
   },
   "completed_live_scenarios": [
     "corrected-source deployment and source parity",
@@ -572,7 +617,8 @@
     "consumer child-error recovery and repeated completion",
     "live aggregate quota enforcement",
     "live freeze and policy revocation",
-    "live state-exhaustion reclamation regression cases"
+    "live state-exhaustion reclamation regression cases",
+    "consumer completion after receipt expiry using the corrected local consumer source"
   ],
   "local_validation": {
     "pytest": "70 passed (50 Direct Mode contract tests, 20 resumable-harness helper tests)",
@@ -594,11 +640,13 @@
   "limitations": [
     "CALLER_ASSERTED evidence is supplied by the caller and is not externally authenticated by the contract.",
     "The historical hashless nonce-441 child consume intent remains unknown.",
+    "The expired child delegation cannot be renewed by the clean available test signer, which is neither an admitted principal nor registered agent. The existing parent signer is inaccessible; no replacement authority write was attempted.",
+    "The corrected consumer fixture is only locally validated and does not match the deployed consumer source.",
     "Live consumer receipt consumption, consumer error recovery, and live resource-reclamation matrix remain unverified.",
     "Explorer contract address page and deployment transaction page were reachable (HTTP 200); the tx page static HTML did not expose the contract address, so finality and source parity rely on independent CLI/RPC verification."
   ],
   "readiness": {
     "status": "not_submission_ready",
-    "reason": "Canonical deployment and multiple live consensus scenarios are verified, but child consumer receipt consumption, remaining live lifecycle/resource-cap scenarios, and nonce-441 uncertainty remain unresolved."
+    "reason": "Canonical deployment and multiple live consensus scenarios are verified, but the child receipt expired unconsumed, its delegation expired, nonce 441 remains unknown, the clean signer lacks the required authority, and remaining consumer/lifecycle/resource-cap gates are unverified."
   }
 }

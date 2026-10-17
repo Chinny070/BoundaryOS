@@ -5,7 +5,6 @@
 
 import hashlib
 import json
-from datetime import datetime, timezone
 
 from genlayer import *
 
@@ -17,8 +16,29 @@ def _canonical(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
-def _now() -> int:
-    return int(datetime.now(timezone.utc).timestamp())
+def _consumed_receipt_proves_operation(
+    receipt: dict[str, object],
+    action_id: str,
+    action_digest: str,
+    consumer_address: str,
+    boundary_address: str,
+    chain_id: int,
+) -> bool:
+    """Verify the finalized BoundaryOS consumption commitment for completion."""
+    committed = dict(receipt)
+    stored_digest = str(committed.pop("receipt_digest", ""))
+    calculated_digest = hashlib.sha256(_canonical(committed).encode("utf-8")).hexdigest()
+    return (
+        len(stored_digest) == 64
+        and stored_digest == calculated_digest
+        and receipt.get("action_id") == action_id
+        and receipt.get("action_digest") == action_digest
+        and receipt.get("decision") == "ALLOW"
+        and receipt.get("consumed") is True
+        and str(receipt.get("consumed_by", "")).lower() == consumer_address.lower()
+        and receipt.get("chain_id") == chain_id
+        and str(receipt.get("boundary_contract", "")).lower() == boundary_address.lower()
+    )
 
 
 @gl.contract_interface
@@ -33,6 +53,7 @@ class BoundaryOSInterface:
         def register_agent(self, principal_address: str) -> None: ...
         def submit_action(self, policy_id: str, nonce: int, action_json: str) -> None: ...
         def evaluate_action(self, action_id: str) -> None: ...
+        def consume_authorization(self, action_id: str, expected_action_digest: str) -> str: ...
 
 
 class BoundaryConsumer(gl.Contract):
@@ -139,16 +160,13 @@ class BoundaryConsumer(gl.Contract):
         if not receipt_raw:
             raise gl.vm.UserError("consumed BoundaryOS receipt is absent")
         receipt = json.loads(receipt_raw)
-        stored_digest = receipt.pop("receipt_digest", "")
-        calculated_digest = hashlib.sha256(_canonical(receipt).encode("utf-8")).hexdigest()
-        if stored_digest != calculated_digest:
-            raise gl.vm.UserError("BoundaryOS receipt digest is invalid")
-        if (
-            receipt.get("decision") != "ALLOW"
-            or receipt.get("consumed") is not True
-            or receipt.get("consumed_by", "").lower() != str(gl.message.contract_address).lower()
-            or receipt.get("action_digest") != expected_digest
-            or _now() >= int(receipt.get("expires_at", 0))
+        if not _consumed_receipt_proves_operation(
+            receipt,
+            action_id,
+            expected_digest,
+            str(gl.message.contract_address),
+            str(self.boundary),
+            int(gl.message.chain_id),
         ):
             raise gl.vm.UserError("finalized BoundaryOS receipt does not authorize this operation")
         # This test-only consumer records the protected operation. It performs

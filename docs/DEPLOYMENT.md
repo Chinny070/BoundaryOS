@@ -40,6 +40,14 @@ Reconciliation did not establish a transaction identity. The RPC returned `Metho
 
 The following live tests remain outstanding on this corrected deployment: delegated child receipt consumption and replay through the consumer, consumer child-error recovery and repeated completion, aggregate quota enforcement, freeze, policy revocation, and deployed-state reclamation at the resource caps. Do not transfer their prior-address or local test results to this deployment.
 
+### Follow-up finalized-state inspection
+
+On 2026-10-17 at 19:05 UTC, the official Python SDK typed read path at `LATEST_FINAL` was used against the canonical contract and the deployed test consumer. The existing policy instance remains generation 1 and the consumer agent is registered and unfrozen. Its root-to-child delegation has `revoked=false` but expired at `2026-10-17T08:53:46Z`; the previous child action is `EVALUATED`, while its `ALLOW` receipt expired at `2026-10-17T08:05:42Z` and is not consumed. The consumer reports `operation_completed=false`. These finalized reads confirm that the old receipt cannot be reused and the old delegated path cannot accept a fresh proposal.
+
+The clean unlocked signer `fairmod-stage2h-test` was selected through `genlayer account use` without exporting key material. Finalized reads show it is not an admitted principal and is not a registered agent on this BoundaryOS instance. It therefore cannot renew the old delegation, authorize a consumer, or create a valid action under the expired delegation. The authorized principal/parent identity in the existing test setup is `bradbury-e2e`, whose owner has reported no access. No write was broadcast from the clean signer, and nonce 441 remains unresolved with no retry.
+
+The local test-consumer source now declares the typed `consume_authorization(action_id, expected_action_digest) -> str` child write and verifies the full finalized consumed-receipt commitment rather than comparing current time to the original expiry during completion. This source is local only: SHA-256 `1568bec190865fd67ec529a9130aeab0e0a80876d94e0ca5bb55489dccccaae`; the deployed consumer remains on source SHA-256 `850e271a6ad274551183484b5a219eb8130322bb3070cab70cce5dd6e3f8ecbc`. No deployed-source claim is made for the local correction.
+
 ## Resource-cap correction and local evidence
 
 The corrected source requires a principal to approve each exact agent address before registration. Pending approvals reserve bounded active-plus-pending per-principal and global slots, and either the principal or contract owner can cancel an unused approval. Regression tests cover unauthorized/Sybil registration, reservation-cap exhaustion and cancellation, principal-slot isolation, policy-cap reclamation, and expired-proposal reclamation. These establish local behavior; the live Studionet resource-reclamation cases are not yet run.
@@ -58,6 +66,8 @@ After adding secret-redacted CLI failure diagnostics, the local checks were:
 | GitHub Actions | [Run 39016951218](https://github.com/Chinny070/BoundaryOS/actions/runs/39016951218) passed on `3481f844399fc0fdbda81ed89400fa5d0b09d9a8`: Linux 70 tests (50 Direct Mode, 20 helpers), contract and consumer GenVM lint/SDK/schema/typecheck and release configuration; Windows 20 helpers and release configuration. |
 
 The system `genvm-lint` shim failed to fetch SDK metadata under sandbox networking (`WinError 10013`); the pinned `.venv-release` runner completed validation. The Windows Direct Mode runner has previously failed before contract execution because `gltest` attempted to unlink a locked temporary file (`WinError 32`). No security protections were disabled.
+
+Follow-up validation on 2026-10-17 passed the harness helpers and consumer receipt-proof regression tests (30 total), compileall, release configuration/source-identity checks, GenVM lint, SDK validation, schema, and typecheck for both contracts using pinned GenVM `v0.2.16`. An initial invocation selected a cached prerelease and hit the user-cache `WinError 5`; pinning the documented runner resolved that. The latest local full Direct Mode attempt still failed before contract execution: 50 tests hit `WinError 32` at `gltest.direct.loader._inject_message_to_fd0` because `stdin` still references the temp file when the runner unlinks it. No ACL or security setting was changed. Prior Linux CI passed the full Direct Mode suite; a new CI run is required for the current branch changes.
 
 ## Older instances and unresolved history
 
