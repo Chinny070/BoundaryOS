@@ -807,7 +807,7 @@ def test_policy_capacity_released_after_expiry_agent_and_policy_reclamation(
         "tenant-policy-0", address(agent_accounts[0].address), 1, action()
     )
     assert old_action_id != new_action_id
-    assert int(contract.principal_policy_count[owner]) == 4
+    assert int(contract.principal_policy_count[to_checksum_address(owner)]) == 4
     assert int(contract.policy_count) == 4
 
 

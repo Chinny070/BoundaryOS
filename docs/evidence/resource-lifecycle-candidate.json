@@ -95,6 +95,19 @@
           "disposition": "test argument corrected in following candidate commit"
         },
         "windows_result": "passed helper tests and release configuration"
+      },
+      {
+        "run_id": 39007866625,
+        "commit": "fc6983720f724a36e31500ece7eef4087431b1ee",
+        "url": "https://github.com/Chinny070/BoundaryOS/actions/runs/39007866625",
+        "linux_result": {
+          "passed": 66,
+          "failed": 1,
+          "status": "failed",
+          "failure_class": "test readback indexed a normalized principal counter with a lowercase address",
+          "disposition": "assertion address normalized in following candidate commit"
+        },
+        "windows_result": "passed helper tests and release configuration"
       }
     ],
     "genvm": {
