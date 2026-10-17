@@ -1,0 +1,481 @@
+{
+  "canonical_contract": "0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF",
+  "canonical_instance_scenario_coverage": [
+    "agent registration",
+    "policy creation",
+    "consumer authorization",
+    "semantic ALLOW/MATCH",
+    "valid receipt readback"
+  ],
+  "canonical_smoke": {
+    "blocked_at": "2026-10-16T17:35:08.100246+00:00",
+    "consume_intent": {
+      "cli_exit_code": 1,
+      "finalized_nonce_disposition": "the intent cannot execute at nonce 2624 now; a different transaction is finalized at that exact sender nonce",
+      "historical_broadcast_disposition": "unknown: no transaction hash or transaction ID was ever captured, so the original broadcast, rejection, or drop cannot be distinguished",
+      "later_reconciliation": {
+        "interpretation": "Finality proves nonce 2624 is occupied by a different transaction, preventing the unresolved consume intent from executing at that nonce. It does not prove whether the original intent was never broadcast or was dropped/rejected before finality.",
+        "observed_at_utc": "2026-10-16T16:59:46Z",
+        "primary_latest_nonce": 2627,
+        "primary_pending_nonce": 2627,
+        "same_nonce_transaction": {
+          "consensus": "NO_MAJORITY",
+          "kind": "value send; not a BoundaryOS contract call",
+          "nonce": 2624,
+          "recipient": "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575",
+          "sender": "0xaffE15eEc45b68835cc9E5B4Ab85dD5deaE8e70b",
+          "status": "FINALIZED",
+          "tx_id": "0xa9cb7539bb75c695f7f3331a8cf73a84f7cc75c5fd0b57443ce351aabc8e48ac"
+        },
+        "secondary_address": "0x3a3168d67a110de79461939047a8f7334ff1423d",
+        "secondary_latest_nonce": 417,
+        "secondary_pending_nonce": 417,
+        "sources": [
+          "Explorer signer-address transaction list",
+          "eth_getTransactionByHash",
+          "gen_getTransactionStatus",
+          "eth_getTransactionCount latest/pending"
+        ],
+        "subsequent_finalized_transactions": [
+          {
+            "consensus": "NO_MAJORITY",
+            "kind": "value send",
+            "nonce": 2625,
+            "status": "FINALIZED",
+            "tx_id": "0xadedfb0f5090c388544a598dbd5efdf8d7b0ac61666b00b743810a53f4d1c287"
+          },
+          {
+            "consensus": "NO_MAJORITY",
+            "kind": "value send",
+            "nonce": 2626,
+            "status": "FINALIZED",
+            "tx_id": "0x569c45614e33eeb08d646039f4464bc5f58df0a5f74e7d28def362428005134b"
+          }
+        ]
+      },
+      "latest_block_scan": {
+        "block": "0x6ad1f4d6",
+        "matching_sender_nonce_transactions": 0
+      },
+      "latest_nonce": 2624,
+      "outer_tx_hash": null,
+      "pending_nonce": 2624,
+      "phase": "broadcast_unknown",
+      "reserved_nonce": 2624,
+      "transaction_pool_rpc": "unsupported by Studionet RPC",
+      "tx_id": null
+    },
+    "decision": "ALLOW",
+    "evidence_provenance": "CALLER_ASSERTED",
+    "latest_attempt_summary": "Three fresh submit_action transactions at EVM nonces 2627, 2628, and 2629 finalized NO_MAJORITY with zero observed validator rounds/votes and no VM execution result. Finalized SDK reads confirmed all three derived action IDs and receipts are absent. No further writes were sent.",
+    "reason": "A distinct finalized value-send transaction occupies signer nonce 2624; this makes the unresolved consume intent unable to execute at that nonce, but its historical broadcast/rejection/drop disposition remains unknown. The previous receipt expired. No resend or nonce override was attempted.",
+    "receipt_consume": "not finalized; the intent cannot execute at nonce 2624 now; original broadcast disposition remains unknown",
+    "receipt_digest": "1b6a73e4c35f3299efaf297d30cc4740724778af46c997f2a962c86b5706c85a",
+    "receipt_digest_valid": true,
+    "receipt_readback": {
+      "action_id": "56d9d3de0357987a26195251fbde3d7692fb9dc73bde21878dd309072ff2ee62",
+      "consumed_field": "absent (receipt creation does not set consumed until successful consumption)",
+      "decision": "ALLOW",
+      "evidence_provenance": "CALLER_ASSERTED",
+      "expires_at_utc": "2026-10-16T09:48:43Z",
+      "receipt_digest": "1b6a73e4c35f3299efaf297d30cc4740724778af46c997f2a962c86b5706c85a",
+      "receipt_digest_valid": true,
+      "semantic_fit": "MATCH"
+    },
+    "semantic_fit": "MATCH",
+    "semantic_match_action_id": "56d9d3de0357987a26195251fbde3d7692fb9dc73bde21878dd309072ff2ee62",
+    "semantic_match_nonce": 2,
+    "setup_and_semantic_match": true,
+    "status": "partial"
+  },
+  "canonical_write_attempts": [
+    {
+      "action_id": "bb45548909a4aa58a2c5c100c5c6cca3478000071a3d08c6056a98c7432f516b",
+      "action_readback": "absent at LATEST_FINAL",
+      "application_nonce": 3,
+      "checkpoint_step": "semantic_match.submit.nonce-3",
+      "consensus": "NO_MAJORITY",
+      "evm_nonce": 2627,
+      "execution_result": null,
+      "method": "submit_action",
+      "outer_transaction_hash": "0xf181be01aa857eb5a1bb79a815bf7f3a6799d6640094b641d38ec55c6a5e0d00",
+      "receipt_readback": "absent at LATEST_FINAL",
+      "rounds_observed": "0",
+      "status": "FINALIZED",
+      "transaction_id": "0xf181be01aa857eb5a1bb79a815bf7f3a6799d6640094b641d38ec55c6a5e0d00",
+      "validator_votes": []
+    },
+    {
+      "action_id": "e29c32dd01481afeef33bbcc7b60c79fbccf981e6df1419c57e70a30ad0fdb6f",
+      "action_readback": "absent at LATEST_FINAL",
+      "application_nonce": 4,
+      "checkpoint_step": "semantic_match.submit.nonce-4",
+      "consensus": "NO_MAJORITY",
+      "evm_nonce": 2628,
+      "execution_result": null,
+      "method": "submit_action",
+      "outer_transaction_hash": "0xecca4eb187bd333ba3acd5f686a03f7d020c0bf1e9b26e3168d6be5dfd4c9de4",
+      "receipt_readback": "absent at LATEST_FINAL",
+      "rounds_observed": "0",
+      "status": "FINALIZED",
+      "transaction_id": "0xecca4eb187bd333ba3acd5f686a03f7d020c0bf1e9b26e3168d6be5dfd4c9de4",
+      "validator_votes": []
+    },
+    {
+      "action_id": "6aad0fdeb9c86dbd8c2ac046b6b01dfcdce54df769f6586b8a6f2aaa255a20f1",
+      "action_readback": "absent at LATEST_FINAL",
+      "application_nonce": 5,
+      "checkpoint_step": "semantic_match.submit.nonce-5",
+      "consensus": "NO_MAJORITY",
+      "evm_nonce": 2629,
+      "execution_result": null,
+      "method": "submit_action",
+      "outer_transaction_hash": "0xb43ba53769ddd970150dcf16d52d875978bf3ad679914b2bdd72ef376d0e6a04",
+      "receipt_readback": "absent at LATEST_FINAL",
+      "rounds_observed": "0",
+      "status": "FINALIZED",
+      "transaction_id": "0xb43ba53769ddd970150dcf16d52d875978bf3ad679914b2bdd72ef376d0e6a04",
+      "validator_votes": []
+    }
+  ],
+  "chain_id": 61999,
+  "corrected_release_candidate": {
+    "observed_at_utc": "2026-10-16T22:54:50Z",
+    "candidate_status": "corrected_locally_not_deployed",
+    "contract_source_sha256": "86720777484aea493439d960cb741639b2320f00d81bd790b3dc14ee547f0937",
+    "deployment_source_commit": "not yet committed at this observation",
+    "historical_canonical_address_is_source_identical": false,
+    "cli_preflight": {
+      "version": "0.39.1",
+      "shell_executable": "C:\\Users\\USERpc\\AppData\\Roaming\\npm\\genlayer.cmd",
+      "harness_entry": "C:\\Users\\USERpc\\AppData\\Roaming\\npm\\node_modules\\genlayer\\dist\\index.js",
+      "network": "studionet",
+      "chain_id": 61999,
+      "rpc": "https://studio.genlayer.com/api",
+      "transaction_selector": "0x27241a99",
+      "studionet_add_transaction_input_count": 5,
+      "primary": {
+        "name": "my-studionet-wallet",
+        "address": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "unlocked": true
+      },
+      "secondary": {
+        "name": "bradbury-e2e",
+        "address": "0x3a3168d67a110de79461939047a8f7334ff1423d",
+        "unlocked": true
+      },
+      "typed_finalized_existing_contract_read": {
+        "address": "0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF",
+        "primary_registered": true,
+        "primary_frozen": false
+      },
+      "writes_submitted": 0
+    },
+    "local_validation": {
+      "python": "3.12",
+      "genlayer_test": "0.29.2",
+      "genlayer_py": "0.16.3",
+      "genvm_linter": "0.11.0",
+      "direct_and_helper_tests": "59 passed using the established Windows environment",
+      "compileall": "passed",
+      "genvm_lint": "3 checks passed using runner v0.2.16 matching the contract SDK pin",
+      "schema": "passed; 22 methods (8 views, 14 writes)",
+      "typecheck": "passed; no type errors",
+      "configuration_and_historical_source_identity": "passed"
+    },
+    "windows_clean_install_limit": "A clean venv with the PyPI genlayer-test==0.29.2 source failed Direct Mode setup because its loader unlinks the stdin backing temp file on Windows (WinError 32). The preinstalled 0.29.2 copy includes a Windows PermissionError guard and passes the suite. GitHub Actions therefore runs full Direct Mode on Linux and Windows harness helper/config checks on Windows.",
+    "consumer_fixture": "two-stage asynchronous consumer example added under tests/fixtures; no live deployment or integration result claimed",
+    "live_corrected_candidate_transactions": [],
+    "readiness": "not_ready; corrected source deployment and live scenario evidence absent"
+  },
+  "consensus_diagnosis": {
+    "observed_at_utc": "2026-10-16T17:54:00Z",
+    "canonical_writes_paused": true,
+    "failed_transactions": [
+      "0xf181be01aa857eb5a1bb79a815bf7f3a6799d6640094b641d38ec55c6a5e0d00",
+      "0xecca4eb187bd333ba3acd5f686a03f7d020c0bf1e9b26e3168d6be5dfd4c9de4",
+      "0xb43ba53769ddd970150dcf16d52d875978bf3ad679914b2bdd72ef376d0e6a04"
+    ],
+    "failed_transaction_record": {
+      "evm_receipt_status": "0x1",
+      "evm_destination": "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575",
+      "legacy_evm_gas_limit": 1000000,
+      "effective_gas_price": "0x0",
+      "outer_calldata_selector": "0x35a251fb",
+      "outer_calldata_bytes": 1060,
+      "genlayer_status": "FINALIZED",
+      "consensus": "NO_MAJORITY",
+      "rounds": 0,
+      "validators": [],
+      "votes": [],
+      "execution_result": null,
+      "derived_action_and_receipt_state": "absent at LATEST_FINAL"
+    },
+    "successful_prior_submission_comparison": {
+      "transaction_ids": [
+        "0xcfaf3177388d9ded1e71714ab0ad58f99f8be98aa8eca8205730ded769e2fb5f",
+        "0x63dbd820566273d7b5c563a66f85bdbc5e8d7fd2f805561e214d86365ff74387"
+      ],
+      "outer_calldata_selector": "0x27241a99",
+      "outer_calldata_bytes": "not retained in prior evidence",
+      "genlayer_status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "rounds": 1,
+      "revealed_votes": 5,
+      "execution_result": "SUCCESS"
+    },
+    "submission_path": {
+      "failed_cli_version": "0.40.0-rc.3",
+      "failed_path": "CLI deploy-script SDK client.writeContract using fee-aware ADD_TRANSACTION_ABI_WITH_FEES; harness omitted fees",
+      "decoded_fee_configuration": "all fee distribution amounts/caps zero; transaction deposit/value zero",
+      "fee_rpc_methods": {
+        "sim_getFeeConfig": "-32601 Method not found",
+        "sim_estimateTransactionFees": "-32601 Method not found"
+      },
+      "legacy_cli_version": "0.39.1 (official npm package, isolated; no scripts run)",
+      "legacy_abi": "old addTransaction(address,address,uint256,uint256,bytes), selector 0x27241a99; matches prior successful writes",
+      "legacy_signer_status": "my-studionet-wallet reports locked in isolated CLI; no unlock performed and no credential accessed",
+      "prior_successful_matrix_exact_cli_version": "not retained; cannot assert which CLI produced prior writes"
+    },
+    "network_comparison": {
+      "rpc_chain_id": "0xf22f (61999)",
+      "recent_unrelated_transactions": [
+        {
+          "tx_id": "0x9b9bf160043ae387bed63b940db920e6868e39e798c8901c4f747128499b5279",
+          "observed_at_utc": "2026-10-16T17:53:33Z",
+          "status": "FINALIZED",
+          "consensus": "MAJORITY_AGREE",
+          "rounds": 1,
+          "revealed_votes": 5
+        },
+        {
+          "tx_id": "0xc5ffd7c17837f2df65008fea0844d56dafbb365eb539f1925a20a878874a0544",
+          "observed_at_utc": "2026-10-16T17:52:59Z",
+          "status": "FINALIZED",
+          "consensus": "MAJORITY_AGREE",
+          "rounds": 1,
+          "revealed_votes": 5
+        }
+      ],
+      "interpretation": "Studionet was processing unrelated Intelligent Contract consensus at the observation time; this rules out a complete network-wide validator outage for those transactions, not a contract-, payload-, fee-, or transaction-specific failure.",
+      "diagnostic_writes_sent": 0
+    },
+    "nonce_observation": {
+      "primary_latest": 2633,
+      "primary_pending": 2633,
+      "observed_at_utc": "2026-10-16T18:07:00Z",
+      "interpretation": "Nonce equality is only a current count observation and does not independently resolve historical broadcasts. No new writes were submitted during this diagnosis."
+    },
+    "source_parity_recheck": {
+      "frozen_commit": "2e918135669a98de6e7c32a30c288a69a7ea0c2f",
+      "local_contract_sha256": "15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17",
+      "official_cli_code_read": "retrieved deployed body matched the frozen committed source byte-for-byte after stripping only CLI-added outer newlines",
+      "contract_modified": false
+    },
+    "cause_assessment": {
+      "finding": "The three transactions were not executed by the VM and were not contract denials. Their payloads used the fee-aware 0.40 ABI while declaring zero fees; the earlier successful writes used the older ABI. Recent unrelated Studionet transactions reached validator rounds and majority finality.",
+      "most_supported_hypothesis": "CLI/protocol compatibility or fee-payload handling regression introduced by the fee-aware submission path",
+      "not_proven": "The RPC does not expose the fee-configuration or lifecycle-detail methods, and no sanitized validator failure reason is available. Evidence does not prove that zero fees alone caused zero rounds.",
+      "other_hypotheses_not_excluded": ["transaction-specific protocol handling", "validator selection or activation edge case", "unobserved submission-client behavior"]
+    },
+    "read_only_rpc_limitations": {
+      "gen_getTransactionReceipt": "-32601 Method not found",
+      "gen_getTransactionLifecycle": "-32601 Method not found",
+      "fee_configuration_and_estimation": "-32601 Method not found"
+    }
+  },
+  "contract_source_sha256": "15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17",
+  "deployment": {
+    "consensus": "MAJORITY_AGREE",
+    "execution": "SUCCESS",
+    "explorer_transaction_url": "https://explorer-studio.genlayer.com/tx/0x8159a551d133d3a915d532a82cebdb8864233fde7bc8c8595805761193e1c88e",
+    "nonce": 2616,
+    "status": "FINALIZED",
+    "tx_id": "0x8159a551d133d3a915d532a82cebdb8864233fde7bc8c8595805761193e1c88e",
+    "validator_vote_counts": {
+      "agree": 5
+    }
+  },
+  "deployment_source_commit": "2e918135669a98de6e7c32a30c288a69a7ea0c2f",
+  "equivalent_corrected_source_diagnostic_coverage": "The complete live scenario matrix passed on corrected-source diagnostic instance 0x2A63fEA23FC0D81D17aC9516Ed4Dd169dc9aa9D8. See studionet-fixed-diagnostic.json. This separate instance is noncanonical.",
+  "explorer_page_inspection": "Explorer transaction and signer-address URLs returned HTTP 200. The signer address page exposed transaction rows. The deployment detail route returned only a client-rendered shell without transaction fields in static HTML. Independent CLI/RPC receipt checks confirm deployment FINALIZED, MAJORITY_AGREE, 5 agreeing votes; do not claim an independent visual detail-page inspection.",
+  "network": "GenLayer Studionet",
+  "not_verified_on_canonical_instance": [
+    "successful receipt consumption",
+    "replay rejection",
+    "semantic mismatch",
+    "deterministic hard denial",
+    "policy revocation",
+    "agent freeze",
+    "delegation restriction",
+    "aggregate quota"
+  ],
+  "post_checkpoint_verification_attempts": {
+    "canonical_agent_and_policy_readback": "successful; agent registered and policy version 1 present",
+    "canonical_live_write_attempts": 3,
+    "canonical_live_write_result": "each fresh submit_action finalized NO_MAJORITY, zero rounds/votes, execution_result null; corresponding finalized action and receipt absent",
+    "observed_at_utc": "2026-10-16T17:35:08.100246+00:00",
+    "primary_signer_evm_nonce_range": [
+      2627,
+      2629
+    ],
+    "read_method": "official genlayer-py read_contract with typed Python arguments and LATEST_FINAL",
+    "read_path_repaired": true,
+    "result": "blocked_by_studionet_no_majority",
+    "writes_after_latest_consensus_failure": "stopped; no additional writes or nonce overrides"
+  },
+  "read_path_diagnostics": {
+    "cli_call_result": "Both instances returned a GenVM undefined/private-method resolution execution error on get_agent; child CLI sometimes terminated with Windows status 0xC0000409. This is not a transport 502 response.",
+    "cli_versions_tested": [
+      "0.40.0-rc.3 (installed)",
+      "0.39.1 (isolated npm execution; version listed by official CLI reference)"
+    ],
+    "instances_tested": [
+      "0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF",
+      "0x2A63fEA23FC0D81D17aC9516Ed4Dd169dc9aa9D8"
+    ],
+    "observed_at_utc": "2026-10-16T17:35:08.100246+00:00",
+    "reproducible_supported_path": "client.read_contract(address=contract, function_name=\"get_agent\", args=[primary_address_as_python_str], transaction_hash_variant=TransactionHashVariant.LATEST_FINAL)",
+    "sdk_finalized_comparison": {
+      "caller": "One ephemeral in-memory read-only SDK account reused for both instances; no signing writes or key persistence",
+      "canonical": {
+        "get_agent": {
+          "agent": "0xaffE15eEc45b68835cc9E5B4Ab85dD5deaE8e70b",
+          "frozen": false,
+          "policy_id": "resume-a74563ec1775",
+          "registered": true
+        },
+        "get_policy_version_1": "present",
+        "get_receipt": {
+          "action_id": "56d9d3de0357987a26195251fbde3d7692fb9dc73bde21878dd309072ff2ee62",
+          "decision": "ALLOW",
+          "digest_valid": true,
+          "evidence_provenance": "CALLER_ASSERTED",
+          "expired_at_observation": true,
+          "receipt_digest": "1b6a73e4c35f3299efaf297d30cc4740724778af46c997f2a962c86b5706c85a",
+          "semantic_fit": "MATCH"
+        }
+      },
+      "corrected_diagnostic": {
+        "get_agent": {
+          "agent": "0xaffE15eEc45b68835cc9E5B4Ab85dD5deaE8e70b",
+          "frozen": false,
+          "policy_id": "resume-38d402ffe342",
+          "registered": true
+        },
+        "get_receipt_for_canonical_action_id": "absent"
+      },
+      "post_attempt_canonical_finalized_state": {
+        "agent_registered": true,
+        "failed_attempt_actions_and_receipts": "all absent",
+        "policy_present": true
+      },
+      "rpc": "https://studio.genlayer.com/api (chain ID 61999)",
+      "sdk": "installed genlayer-py client.read_contract",
+      "state_selection": "TransactionHashVariant.LATEST_FINAL"
+    },
+    "typed_argument_cause": "Canonical and diagnostic schema declare get_agent(agent_address: str). The installed official CLI parser maps every 0x-prefixed 40-hex token to CalldataAddress; its scalar parser does not unwrap a standalone JSON-quoted string argument. Thus CLI call cannot represent the declared plain-string address argument faithfully. The call failure is an argument-encoding/client-path failure and is not evidence of a canonical-only contract defect.",
+    "writes_after_read_repair": "none were based on unverified reads; canonical smoke submit attempts were broadcast only after SDK finalized reads succeeded and each was reconciled by transaction status plus action/receipt readback."
+  },
+  "schema_version": 1,
+  "signing_material": "Existing named CLI wallets; no key or keystore content read/exported/recorded.",
+  "source_parity": {
+    "comparison": "Retrieved result body matched committed contracts/boundary_os.py byte-for-byte after stripping the CLI-added leading/trailing newlines.",
+    "frozen_source_commit": "2e918135669a98de6e7c32a30c288a69a7ea0c2f",
+    "local_sha256": "15fb138d0bd6008007d004ce3b89238730da823ce358ef52c59a542c8c6e7d17",
+    "normalized_match": true,
+    "retrieval_command": "genlayer code 0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF --rpc https://studio.genlayer.com/api",
+    "retrieval_succeeded": true,
+    "retrieved_body_sha256_without_cli_newline_wrapper": "f89204c87887f986e997f3f61884ce2a95e6c12540b2cbd9425d3ff7edfbbd0e",
+    "reverified_at_utc": "2026-10-16T16:59:46Z",
+    "working_file_matches_frozen_commit": true
+  },
+  "transaction_records": [
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "evaluate_action",
+      "nonce": 2621,
+      "status": "FINALIZED",
+      "step": "semantic_match.evaluate",
+      "tx_id": "0x6e833925350e81e43e20798c3f4dab7b0d1c3cbdf5e2955915f9282a0e38ceae",
+      "validator_vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "evaluate_action",
+      "nonce": 2623,
+      "status": "FINALIZED",
+      "step": "semantic_match.evaluate.nonce-2",
+      "tx_id": "0x3459cf7738fda09493e23598c2478e49225dfc51fc9c94961a59ae566f841515",
+      "validator_vote_counts": {
+        "agree": 3,
+        "idle": 2
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "submit_action",
+      "nonce": 2620,
+      "status": "FINALIZED",
+      "step": "semantic_match.submit",
+      "tx_id": "0xcfaf3177388d9ded1e71714ab0ad58f99f8be98aa8eca8205730ded769e2fb5f",
+      "validator_vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "submit_action",
+      "nonce": 2622,
+      "status": "FINALIZED",
+      "step": "semantic_match.submit.nonce-2",
+      "tx_id": "0x63dbd820566273d7b5c563a66f85bdbc5e8d7fd2f805561e214d86365ff74387",
+      "validator_vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "authorize_consumer",
+      "nonce": 2619,
+      "status": "FINALIZED",
+      "step": "setup.authorize_consumer",
+      "tx_id": "0xf7f51499c74915e5c142737c769d202775b137f7baf6e21bae32f4ec5296a4c2",
+      "validator_vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "create_policy",
+      "nonce": 2618,
+      "status": "FINALIZED",
+      "step": "setup.create_policy",
+      "tx_id": "0xed94ea8d4ce5fe0e5cd7fd69a0a2f04a6643ecbf037f15448ccc781966508790",
+      "validator_vote_counts": {
+        "agree": 5
+      }
+    },
+    {
+      "consensus": "MAJORITY_AGREE",
+      "execution": "SUCCESS",
+      "method": "register_agent",
+      "nonce": 2617,
+      "status": "FINALIZED",
+      "step": "setup.register_agent",
+      "tx_id": "0xfb05f68e8b3da0896528354e3c3864c0fb0f361dc31f50593332d943c15da4c1",
+      "validator_vote_counts": {
+        "agree": 5
+      }
+    }
+  ]
+}

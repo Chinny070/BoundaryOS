@@ -285,6 +285,24 @@ def _finalized_no_majority_without_execution(tx: dict[str, Any]) -> bool:
     )
 
 
+def _finalized_contract_execution_error(tx: dict[str, Any]) -> bool:
+    """Recognize a finalized VM failure that made no application-state change."""
+    return (
+        isinstance(tx, dict)
+        and tx.get("status") == "FINALIZED"
+        and tx.get("consensus_outcome") in ("MAJORITY_AGREE", "MAJORITY_DISAGREE")
+        and tx.get("execution_result") == "ERROR"
+        and tx.get("classification") == "contract_execution_failure"
+    )
+
+
+def _record_action_nonce(checkpoint: "Checkpoint", nonce: int) -> None:
+    """Keep the application nonce high-water mark aligned with finalized state."""
+    checkpoint.data["last_action_nonce"] = max(
+        int(checkpoint.data.get("last_action_nonce") or 0), int(nonce)
+    )
+
+
 def is_transient_sdk_read_error(error: str) -> bool:
     """Return true only for recognized transport/service failures, not bad calls."""
     lowered = error.lower()
@@ -518,6 +536,16 @@ class StudionetVerifier:
                 current.update(record)
                 current["poll_count"] = poll + 1
                 self.checkpoint.data["transactions"][tx_id] = current
+                if record["status"] == "FINALIZED":
+                    for saved_step in self.checkpoint.data.get("steps", {}).values():
+                        if saved_step.get("tx_id") == tx_id:
+                            saved_step["phase"] = "finalized"
+                            saved_step["finalized_at"] = record.get("observed_at", _now())
+                elif record["status"] in ("CANCELED", "CANCELLED", "REVERTED"):
+                    for saved_step in self.checkpoint.data.get("steps", {}).values():
+                        if saved_step.get("tx_id") == tx_id:
+                            saved_step["phase"] = "terminal_failure"
+                            saved_step["finalized_at"] = record.get("observed_at", _now())
                 self.checkpoint.save()
                 self.emit("transaction_status", **record, poll=poll + 1)
                 if record["status"] == "FINALIZED":
@@ -1222,7 +1250,16 @@ def reconcile_checkpoint_before_writes(verifier: StudionetVerifier, max_polls: i
         if item.get("tx_id") or item.get("outer_tx_hash") or phase in (
             "intent_saved", "broadcast_unknown", "nonce_conflict"
         ):
-            verifier.reconcile(step, max_polls=max_polls)
+            try:
+                verifier.reconcile(step, max_polls=max_polls)
+            except ContractExecutionFailure:
+                # A finalized VM error is a known terminal outcome, not an
+                # ambiguous broadcast. Keep its evidence and allow scenario
+                # logic to decide whether a fresh application nonce is safe.
+                tx_id = item.get("tx_id")
+                tx = verifier.checkpoint.data.get("transactions", {}).get(tx_id, {})
+                if not _finalized_contract_execution_error(tx):
+                    raise
             refreshed = verifier.checkpoint.data.get("steps", {}).get(step, {})
             if not refreshed.get("tx_id"):
                 raise UnresolvedBroadcast(f"checkpoint step {step} remains unresolved; refusing new writes")
@@ -1540,6 +1577,33 @@ def run_live_suite(
                 record.pop("result", None)
                 verifier.checkpoint.save()
                 submit_step = scenario_step(label, "submit", next_nonce)
+            elif (
+                prior_tx_id
+                and _finalized_contract_execution_error(prior_tx)
+                and int(record["nonce"]) <= int(verifier.checkpoint.data.get("last_action_nonce") or 0)
+            ):
+                # Preserve a finalized failed attempt whose application nonce
+                # is behind finalized action state, then derive a fresh ID.
+                if _as_json(verifier.read("get_action", [aid])) or _as_json(verifier.read("get_receipt", [aid])):
+                    raise VerificationError(
+                        f"{label}: failed submit unexpectedly has finalized action or receipt state"
+                    )
+                record.setdefault("failed_submit_attempts", []).append(
+                    {"action_id": aid, "nonce": record["nonce"], "tx_id": prior_tx_id}
+                )
+                next_nonce = max(
+                    int(verifier.checkpoint.data.get("last_action_nonce") or 0),
+                    int(record["nonce"]),
+                ) + 1
+                aid = derive_action_id(policy_id, signer_address, next_nonce, action_json)
+                if _as_json(verifier.read("get_action", [aid])) or _as_json(verifier.read("get_receipt", [aid])):
+                    raise VerificationError(
+                        f"{label}: retry nonce {next_nonce} already has action or receipt state; refusing reuse"
+                    )
+                record.update({"nonce": next_nonce, "action_id": aid, "created_at": _now()})
+                record.pop("result", None)
+                verifier.checkpoint.save()
+                submit_step = scenario_step(label, "submit", next_nonce)
             verifier.write_once(
                 submit_step,
                 "submit_action",
@@ -1555,6 +1619,11 @@ def run_live_suite(
             verifier.checkpoint.save()
         elif action_state.get("nonce") != record["nonce"]:
             raise VerificationError(f"{label}: action ID read back with a different nonce")
+        else:
+            # A resumed checkpoint may have persisted an action but not its
+            # application nonce high-water mark before interruption.
+            _record_action_nonce(verifier.checkpoint, int(record["nonce"]))
+            verifier.checkpoint.save()
 
         if receipt_value:
             decision = receipt_value
@@ -1606,6 +1675,10 @@ def run_live_suite(
             receipt_value = _as_json(verifier.read("get_receipt", [aid]))
             if not isinstance(receipt_value, dict):
                 raise VerificationError(f"{label}: finalized evaluation did not produce a receipt")
+
+        action_state = _as_json(verifier.read("get_action", [aid]))
+        if not isinstance(action_state, dict) or action_state.get("state") != "EVALUATED":
+            raise VerificationError(f"{label}: finalized receipt is not backed by EVALUATED action state")
 
         if receipt_value.get("decision") != expected_decision:
             raise VerificationError(

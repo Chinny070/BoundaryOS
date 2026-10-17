@@ -16,6 +16,8 @@ from studionet_resume import (
     derive_action_id,
     is_transient_sdk_read_error,
     _finalized_no_majority_without_execution,
+    _finalized_contract_execution_error,
+    _record_action_nonce,
     parse_cli_accounts,
     scenario_step,
     _resolve_cli_entry,
@@ -65,6 +67,30 @@ def test_known_malformed_action_id_is_detectably_not_a_digest():
 
     assert len(KNOWN_PROPOSAL_ID) == 64
     assert len(INCORRECT_RECORDED_ID) == 65
+
+
+def test_finalized_vm_error_is_distinguished_from_unresolved_broadcast():
+    failed = {
+        "status": "FINALIZED",
+        "consensus_outcome": "MAJORITY_AGREE",
+        "execution_result": "ERROR",
+        "classification": "contract_execution_failure",
+    }
+    assert _finalized_contract_execution_error(failed)
+    assert not _finalized_contract_execution_error({**failed, "status": "PROPOSING"})
+    assert not _finalized_contract_execution_error({**failed, "execution_result": "SUCCESS"})
+    assert not _finalized_contract_execution_error({**failed, "classification": "consensus_failure"})
+
+
+def test_resumed_action_readback_advances_application_nonce_high_water(tmp_path):
+    checkpoint = Checkpoint(tmp_path / "checkpoint.json", "0xc", "0xs", "abc")
+    try:
+        checkpoint.data["last_action_nonce"] = 5
+        _record_action_nonce(checkpoint, 6)
+        _record_action_nonce(checkpoint, 4)
+        assert checkpoint.data["last_action_nonce"] == 6
+    finally:
+        checkpoint.close()
 
 
 def test_resume_mode_reconciles_one_step_without_enabling_suite_writes():

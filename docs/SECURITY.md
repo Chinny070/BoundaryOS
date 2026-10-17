@@ -45,3 +45,6 @@ Consensus disagreement, malformed LLM output, or network unavailability may make
 ## Explicit exclusions
 
 BoundaryOS is not KYC, an identity oracle, a payment/escrow platform, a web monitor, or a general prompt-injection detector. It cannot stop actions performed without a consumer check. There is no cross-contract atomicity guarantee established by this repository yet; see [Integration](INTEGRATION.md).
+## Verified release instance
+
+The corrected canonical instance is `0xb95a995A42E68455223DCC05403c98fDf40657FB` on Studionet. Its deployed source matches the frozen release commit, and the live matrix finalized semantic matches/mismatches, deterministic denials, quota, freeze, delegation, policy freshness, revocation, receipt consumption, and replay rejection. These tests establish behavior for the recorded scenarios and state; they do not authenticate `CALLER_ASSERTED` evidence or prove model correctness. The machine-readable proof and nonce-history limitations are in [the deployment record](DEPLOYMENT.md).
