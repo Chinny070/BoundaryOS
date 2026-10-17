@@ -711,10 +711,10 @@ def test_agent_registration_capacity_isolated_per_principal_and_reclaimable(
     contract.admit_principal(address(direct_bob))
     agents = [Account.create() for _ in range(9)]
     for agent in agents[:8]:
-        direct_vm.sender = agent
+        direct_vm.sender = agent.address
         contract.register_agent(address(direct_bob))
 
-    direct_vm.sender = agents[8]
+    direct_vm.sender = agents[8].address
     with direct_vm.expect_revert("principal agent capacity reached"):
         contract.register_agent(address(direct_bob))
 
@@ -724,16 +724,16 @@ def test_agent_registration_capacity_isolated_per_principal_and_reclaimable(
         contract.register_agent(address(direct_charlie))
     direct_vm.sender = contract.owner
     contract.admit_principal(address(direct_charlie))
-    direct_vm.sender = agents[8]
+    direct_vm.sender = agents[8].address
     contract.register_agent(address(direct_charlie))
     assert int(contract.principal_agent_count[to_checksum_address(address(direct_bob))]) == 8
 
     # The registering agent can release an unused slot; another address can
     # then register under the same principal.
-    direct_vm.sender = agents[0]
+    direct_vm.sender = agents[0].address
     contract.unregister_agent(address(agents[0].address))
     replacement = Account.create()
-    direct_vm.sender = replacement
+    direct_vm.sender = replacement.address
     contract.register_agent(address(direct_bob))
     assert int(contract.principal_agent_count[to_checksum_address(address(direct_bob))]) == 8
 
@@ -776,12 +776,12 @@ def test_policy_capacity_released_after_expiry_agent_and_policy_reclamation(
     for index, account in enumerate(agent_accounts[:4]):
         direct_vm.sender = account.address
         contract.register_agent(owner)
-        direct_vm.sender = owner
+        direct_vm.sender = direct_bob
         contract.create_policy(f"tenant-policy-{index}", address(account.address), policy())
 
     direct_vm.sender = agent_accounts[4].address
     contract.register_agent(owner)
-    direct_vm.sender = owner
+    direct_vm.sender = direct_bob
     with direct_vm.expect_revert("principal policy capacity reached"):
         contract.create_policy("tenant-policy-over-cap", address(agent_accounts[4].address), policy())
 
@@ -797,7 +797,7 @@ def test_policy_capacity_released_after_expiry_agent_and_policy_reclamation(
     contract.reclaim_policy("tenant-policy-0")
     direct_vm.sender = agent_accounts[0].address
     contract.register_agent(owner)
-    direct_vm.sender = owner
+    direct_vm.sender = direct_bob
     contract.create_policy(
         "tenant-policy-0",
         address(agent_accounts[0].address),

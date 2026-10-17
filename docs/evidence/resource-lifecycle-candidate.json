@@ -66,6 +66,22 @@
           "disposition": "test setup defects corrected in the following candidate commit"
         },
         "windows_result": "passed helper tests and release configuration; Direct Mode is intentionally omitted on Windows because of the documented gltest temporary-file lock"
+      },
+      {
+        "run_id": 39007541381,
+        "commit": "d60dbb7d13c7515ceb4eb8fe62e0e2c365a8d7b5",
+        "url": "https://github.com/Chinny070/BoundaryOS/actions/runs/39007541381",
+        "linux_result": {
+          "passed": 65,
+          "failed": 2,
+          "status": "failed",
+          "failure_classes": [
+            "registration fixture used inconsistent signer representation during cleanup",
+            "policy owner fixture used inconsistent sender representation"
+          ],
+          "disposition": "test setup representations corrected in the following candidate commit"
+        },
+        "windows_result": "passed helper tests and release configuration"
       }
     ],
     "genvm": {
