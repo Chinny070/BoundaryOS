@@ -78,6 +78,25 @@
     },
     "github_actions_runs": [
       {
+        "run_id": 39010619404,
+        "commit": "def8489d1fa26680ad16abbc3711ed1214403012",
+        "url": "https://github.com/Chinny070/BoundaryOS/actions/runs/39010619404",
+        "linux_result": {
+          "direct_and_helpers": "68 passed in 42.95s (49 Direct Mode, 19 helper tests)",
+          "genvm_lint": "passed, 3 checks",
+          "sdk_validation": "passed, 29 methods (10 views, 19 writes)",
+          "schema": "passed, 29 methods",
+          "typecheck": "passed",
+          "release_configuration": "passed",
+          "status": "passed"
+        },
+        "windows_result": {
+          "helper_tests": "19 passed in 0.15s",
+          "release_configuration": "passed",
+          "status": "passed"
+        }
+      },
+      {
         "run_id": 39007991262,
         "commit": "6d0d9ddf5b916fa4fc27613e48718021a1cc97f9",
         "url": "https://github.com/Chinny070/BoundaryOS/actions/runs/39007991262",
@@ -87,12 +106,12 @@
           "sdk_validation": "passed, 29 methods (10 views, 19 writes)",
           "typecheck": "passed",
           "release_configuration": "passed",
-          "status": "passed; predates the cross-checkpoint harness guard"
+          "status": "passed"
         },
         "windows_result": {
           "helper_tests": "18 passed in 0.12s",
           "release_configuration": "passed",
-          "status": "passed; predates the cross-checkpoint harness guard"
+          "status": "passed"
         }
       },
       {
@@ -260,7 +279,7 @@
       "policy revocation and agent freeze",
       "aggregate quota"
     ],
-    "cross_checkpoint_guard": "implemented and unit tested after discovering checkpoint-local nonce reconciliation; it blocks unresolved intents at the same signer nonce, reconciles only matching finalized identities, and isolates older unresolved intents from other contract addresses while preserving their history; not yet exercised by a post-change CI run",
+    "cross_checkpoint_guard": "implemented and unit tested after discovering checkpoint-local nonce reconciliation; it blocks unresolved intents at the same signer nonce, reconciles only matching finalized identities, and isolates older unresolved intents from other contract addresses while preserving their history; passed Linux and Windows helper CI in run 39010619404",
     "reason": "Primary signer nonce 2686 is tied to a hashless unresolved authorize_consumer attempt. The Studionet RPC does not implement txpool_content and exposes no supported transaction lookup by signer nonce, so the attempt cannot be authoritatively reconciled or safely retried."
   },
   "readiness": {
