@@ -212,10 +212,21 @@ def parse_cli_accounts(output: str) -> tuple[dict[str, CliAccount], str]:
     return accounts, active
 
 
-def encode_cli_write_intent(contract: str, method: str, args: list[Any], rotations: int) -> str:
+def encode_cli_write_intent(
+    contract: str,
+    method: str,
+    args: list[Any],
+    rotations: int,
+    target_contract: str | None = None,
+) -> str:
     """Serialize typed SDK arguments for the isolated CLI deploy-script adapter."""
     return json.dumps(
-        {"contract": contract, "method": method, "args": args, "rotations": rotations},
+        {
+            "contract": target_contract or contract,
+            "method": method,
+            "args": args,
+            "rotations": rotations,
+        },
         separators=(",", ":"),
         ensure_ascii=True,
     )
@@ -229,12 +240,18 @@ def _canonical(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
 
 
-def derive_action_id(policy_id: str, agent_address: str, nonce: int, action_json: str) -> str:
+def derive_action_id(
+    policy_id: str,
+    agent_address: str,
+    nonce: int,
+    action_json: str,
+    policy_instance: int = 1,
+) -> str:
     """Mirror preview_action_id for nodes whose preview view RPC is broken."""
     raw = json.loads(action_json)
     action_digest = hashlib.sha256(_canonical(raw)).hexdigest()
     normalized_address = to_checksum_address(agent_address)
-    preimage = f"{policy_id}|{normalized_address}|{int(nonce)}|{action_digest}"
+    preimage = f"{policy_id}|{int(policy_instance)}|{normalized_address}|{int(nonce)}|{action_digest}"
     return hashlib.sha256(preimage.encode("utf-8")).hexdigest()
 
 
@@ -453,7 +470,9 @@ class StudionetVerifier:
         safe_detail = "transient HTTP response" if isinstance(last_error, requests.HTTPError) else type(last_error).__name__
         raise TransportFailure(f"{method} failed after {RETRY_LIMIT} bounded attempts: {safe_detail}")
 
-    def read(self, method: str, args: list[Any] | None = None) -> Any:
+    def read(
+        self, method: str, args: list[Any] | None = None, contract_address: str | None = None
+    ) -> Any:
         """Read finalized contract state through the official typed Python SDK.
 
         The CLI parser coerces address-shaped strings to ``CalldataAddress`` and
@@ -466,7 +485,7 @@ class StudionetVerifier:
         for attempt in range(RETRY_LIMIT):
             try:
                 return self.client.read_contract(
-                    address=self.contract,
+                    address=contract_address or self.contract,
                     function_name=method,
                     args=read_args,
                     transaction_hash_variant=TransactionHashVariant.LATEST_FINAL,
@@ -676,8 +695,19 @@ class StudionetVerifier:
         max_polls: int = 30,
         signer: Any | None = None,
         expected_execution_error: bool = False,
+        contract_address: str | None = None,
     ) -> dict[str, Any]:
         signer = signer or self.account
+        saved = self.checkpoint.data.get("steps", {}).get(step)
+        expected_contract = contract_address or self.contract
+        expected_args_digest = hashlib.sha256(_canonical(args)).hexdigest()
+        if saved and (
+            saved.get("method") != method
+            or saved.get("contract_address", self.contract).lower() != expected_contract.lower()
+            or saved.get("signer_address", signer.address).lower() != signer.address.lower()
+            or saved.get("args_sha256") != expected_args_digest
+        ):
+            raise VerificationError(f"checkpointed step {step} is bound to different write arguments")
         existing = self.reconcile(step, max_polls=max_polls)
         if existing:
             return existing
@@ -688,9 +718,10 @@ class StudionetVerifier:
         intent = {
             "phase": "intent_saved",
             "method": method,
+            "contract_address": contract_address or self.contract,
             "signer_address": signer.address,
             "reserved_nonce": pending,
-            "args_sha256": hashlib.sha256(_canonical(args)).hexdigest(),
+            "args_sha256": expected_args_digest,
             "expected_execution_error": expected_execution_error,
             "created_at": _now(),
         }
@@ -699,7 +730,10 @@ class StudionetVerifier:
         self.emit("write_intent_saved", step=step, method=method, reserved_nonce=pending)
         try:
             if self.cli_signing:
-                tx_id = self._cli_write_once(step, method, args, rotations, signer, intent, pending, max_polls)
+                tx_id = self._cli_write_once(
+                    step, method, args, rotations, signer, intent, pending, max_polls,
+                    contract_address=contract_address,
+                )
             else:
                 provider = self.client.provider
                 original_make_request = provider.make_request
@@ -715,7 +749,7 @@ class StudionetVerifier:
                 provider.make_request = record_outer_hash
                 try:
                     tx_id = self.client.write_contract(
-                        address=self.contract,
+                        address=contract_address or self.contract,
                         function_name=method,
                         account=signer,
                         consensus_max_rotations=rotations,
@@ -771,6 +805,7 @@ class StudionetVerifier:
         intent: dict[str, Any],
         reserved_nonce: int,
         max_polls: int,
+        contract_address: str | None = None,
     ) -> str:
         """Sign with the selected CLI keystore account and checkpoint its broadcast hash."""
         account_name = getattr(signer, "name", "")
@@ -809,7 +844,7 @@ class StudionetVerifier:
             (deploy_dir / "01_boundaryos_write.js").write_text(script, encoding="utf-8")
             process_env = os.environ.copy()
             process_env["BOUNDARYOS_CLI_WRITE_INTENT"] = encode_cli_write_intent(
-                self.contract, method, args, rotations
+                self.contract, method, args, rotations, target_contract=contract_address
             )
             command = _genlayer_command("deploy")
             process = subprocess.Popen(
@@ -896,7 +931,12 @@ class StudionetVerifier:
         # independently checks consensus status and finality using the captured ID.
         return tx_id
 
-    def deploy_once(self, source_path: Path, max_polls: int = 50) -> dict[str, Any]:
+    def deploy_once(
+        self,
+        source_path: Path,
+        max_polls: int = 50,
+        constructor_args: list[Any] | None = None,
+    ) -> dict[str, Any]:
         """Explicitly deploy source once via the official CLI script client, then reconcile."""
         if not self.cli_signing:
             raise VerificationError("checkpointed deployment requires the CLI keystore signer backend")
@@ -904,11 +944,13 @@ class StudionetVerifier:
         if not source_path.is_file():
             raise VerificationError("deployment source file does not exist")
         source_hash = hashlib.sha256(source_path.read_bytes()).hexdigest()
+        args = constructor_args or []
+        args_hash = hashlib.sha256(_canonical(args)).hexdigest()
         step = "deployment.deploy"
         item = self.checkpoint.data.setdefault("steps", {}).get(step)
         if item:
-            if item.get("source_sha256") != source_hash:
-                raise VerificationError("deployment checkpoint is bound to different source bytes")
+            if item.get("source_sha256") != source_hash or item.get("constructor_args_sha256") != args_hash:
+                raise VerificationError("deployment checkpoint is bound to different source bytes or constructor arguments")
             if item.get("contract_address"):
                 return item
             existing = self.reconcile(step, max_polls=max_polls)
@@ -931,6 +973,8 @@ class StudionetVerifier:
             "signer_address": self.account.address,
             "reserved_nonce": pending,
             "source_sha256": source_hash,
+            "constructor_args_sha256": args_hash,
+            "constructor_args": args,
             "created_at": _now(),
             "broadcast_adapter": "genlayer-cli-deploy-script",
         }
@@ -956,7 +1000,7 @@ export default async function (client) {
   let hash = payload.transaction_hash;
   if (!hash) {
     const code = await readFile(payload.source_path, "utf8");
-    hash = await client.deployContract({ code, args: [], leaderOnly: false });
+    hash = await client.deployContract({ code, args: payload.constructor_args || [], leaderOnly: false });
     console.log("BoundaryOS deployment transaction hash:", hash);
   }
   const receipt = await client.waitForTransactionReceipt({
@@ -973,7 +1017,8 @@ export default async function (client) {
             (deploy_dir / "01_boundaryos_deploy.js").write_text(script, encoding="utf-8")
             process_env = os.environ.copy()
             process_env["BOUNDARYOS_CLI_DEPLOY_INTENT"] = json.dumps(
-                {"source_path": str(source_path)}, separators=(",", ":"), ensure_ascii=True
+                {"source_path": str(source_path), "constructor_args": args},
+                separators=(",", ":"), ensure_ascii=True
             )
             process = subprocess.Popen(
                 _genlayer_command("deploy"),
@@ -1285,10 +1330,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rpc-url", default=None, help="RPC endpoint from official compatible tooling; defaults to configured Studionet RPC")
     parser.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT)
     parser.add_argument("--deploy-source", type=Path, help="explicitly deploy this source once and checkpoint its transaction")
+    parser.add_argument(
+        "--deploy-args-json", default="[]",
+        help="JSON array of public constructor arguments for --deploy-source",
+    )
     parser.add_argument("--deployment-checkpoint", type=Path, default=DEFAULT_DEPLOYMENT_CHECKPOINT)
     parser.add_argument("--inspect-existing", action="store_true", help="read-only inspect the known finalized proposal")
     parser.add_argument("--preflight-only", action="store_true", help="verify the pinned CLI, signer access, network, RPC, chain ID, and typed SDK reads without writing")
     parser.add_argument("--run-live-suite", action="store_true", help="explicitly permit live writes; never deploys")
+    parser.add_argument(
+        "--consumer-contract",
+        help="deployed test-only BoundaryConsumer address; enables the two-stage message smoke test",
+    )
     parser.add_argument("--resume-step", help="reconcile a previously checkpointed write step without sending any new transaction")
     parser.add_argument("--max-polls", type=int, default=30)
     parser.add_argument(
@@ -1300,6 +1353,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cli-primary", default=os.environ.get("BOUNDARYOS_CLI_PRIMARY", "my-studionet-wallet"))
     parser.add_argument("--cli-child", default=os.environ.get("BOUNDARYOS_CLI_CHILD", "bradbury-e2e"))
     options = parser.parse_args(argv)
+    try:
+        deployment_args = json.loads(options.deploy_args_json)
+    except json.JSONDecodeError as exc:
+        raise VerificationError("--deploy-args-json must be a JSON array") from exc
+    if not isinstance(deployment_args, list):
+        raise VerificationError("--deploy-args-json must be a JSON array")
+    if not options.deploy_source and deployment_args:
+        raise VerificationError("--deploy-args-json requires --deploy-source")
     if options.deploy_source and (options.run_live_suite or options.inspect_existing or options.resume_step or options.preflight_only):
         raise VerificationError("deployment is an explicit separate command; do not combine with inspection or suite writes")
     if options.deploy_source and options.signer_backend != "cli":
@@ -1308,6 +1369,8 @@ def main(argv: list[str] | None = None) -> int:
         raise VerificationError("live verification writes require the pinned CLI-backed named-wallet signer")
     if options.resume_step and options.run_live_suite:
         raise VerificationError("--resume-step is read/reconcile-only and cannot be combined with --run-live-suite")
+    if options.consumer_contract and not options.run_live_suite:
+        raise VerificationError("--consumer-contract requires --run-live-suite")
 
     if options.rpc_url is not None and options.rpc_url != RPC_URL:
         raise VerificationError(f"only Studionet RPC {RPC_URL} is supported")
@@ -1327,7 +1390,9 @@ def main(argv: list[str] | None = None) -> int:
             raise VerificationError("deployment source file does not exist")
         checkpoint_path = options.deployment_checkpoint
         checkpoint_contract = DEPLOYMENT_CHECKPOINT_BINDING
-        source_fingerprint = hashlib.sha256(deployment_source.read_bytes()).hexdigest()
+        source_fingerprint = hashlib.sha256(
+            deployment_source.read_bytes() + _canonical(deployment_args)
+        ).hexdigest()
     else:
         deployment_source = None
         checkpoint_path = options.checkpoint
@@ -1372,7 +1437,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if deployment_source is not None:
             reconcile_checkpoint_before_writes(verifier, max_polls=options.max_polls)
-            result = verifier.deploy_once(deployment_source, max_polls=options.max_polls)
+            result = verifier.deploy_once(
+                deployment_source,
+                max_polls=options.max_polls,
+                constructor_args=deployment_args,
+            )
             verifier.emit(
                 "deployment_complete",
                 source_sha256=result.get("source_sha256"),
@@ -1394,7 +1463,13 @@ def main(argv: list[str] | None = None) -> int:
             raise VerificationError("no inspection target selected; pass the disposable contract address")
         if options.run_live_suite:
             reconcile_checkpoint_before_writes(verifier, max_polls=options.max_polls)
-            run_live_suite(verifier, account, accounts, max_polls=options.max_polls)
+            run_live_suite(
+                verifier,
+                account,
+                accounts,
+                max_polls=options.max_polls,
+                consumer_contract_address=options.consumer_contract,
+            )
         return 0
     finally:
         checkpoint.close()
@@ -1405,9 +1480,19 @@ def run_live_suite(
     account: Any,
     accounts: list[Any],
     max_polls: int = 30,
+    consumer_contract_address: str | None = None,
 ) -> None:
     """Run resumable diagnostic flows on the specified instance; never deploys."""
     signer_address = account.address
+    if verifier.read("is_principal_admitted", [signer_address]) is not True:
+        verifier.write_once(
+            "setup.admit_principal",
+            "admit_principal",
+            [signer_address],
+            max_polls=max_polls,
+        )
+        if verifier.read("is_principal_admitted", [signer_address]) is not True:
+            raise VerificationError("principal admission finalized but finalized state is absent")
     agent = _as_json(verifier.read("get_agent", [signer_address]))
     if not isinstance(agent, dict):
         raise VerificationError("get_agent returned malformed state")
@@ -1473,6 +1558,10 @@ def run_live_suite(
         if expected != actual:
             raise VerificationError("checkpoint policy definition differs from finalized on-chain policy")
 
+    policy_instance = int(verifier.read("get_policy_instance", [policy_id]))
+    if policy_instance <= 0:
+        raise VerificationError("finalized policy instance generation is missing")
+
     verifier.write_once(
         "setup.authorize_consumer",
         "authorize_consumer",
@@ -1506,7 +1595,7 @@ def run_live_suite(
 
         if not record:
             nonce = int(verifier.checkpoint.data.get("last_action_nonce") or 0) + 1
-            aid = derive_action_id(policy_id, signer_address, nonce, action_json)
+            aid = derive_action_id(policy_id, signer_address, nonce, action_json, policy_instance)
             record = {
                 "nonce": nonce,
                 "action_id": aid,
@@ -1540,7 +1629,7 @@ def run_live_suite(
             next_nonce = max(
                 int(verifier.checkpoint.data.get("last_action_nonce") or 0), int(record["nonce"])
             ) + 1
-            aid = derive_action_id(policy_id, signer_address, next_nonce, action_json)
+            aid = derive_action_id(policy_id, signer_address, next_nonce, action_json, policy_instance)
             if _as_json(verifier.read("get_action", [aid])) or _as_json(verifier.read("get_receipt", [aid])):
                 raise VerificationError(f"{label}: fresh nonce {next_nonce} already exists on chain; refusing reuse")
             record.update({"nonce": next_nonce, "action_id": aid, "created_at": _now()})
@@ -1568,7 +1657,7 @@ def run_live_suite(
                     int(verifier.checkpoint.data.get("last_action_nonce") or 0),
                     int(record["nonce"]),
                 ) + 1
-                aid = derive_action_id(policy_id, signer_address, next_nonce, action_json)
+                aid = derive_action_id(policy_id, signer_address, next_nonce, action_json, policy_instance)
                 if _as_json(verifier.read("get_action", [aid])):
                     raise VerificationError(
                         f"{label}: retry nonce {next_nonce} already exists on chain; refusing reuse"
@@ -1595,7 +1684,7 @@ def run_live_suite(
                     int(verifier.checkpoint.data.get("last_action_nonce") or 0),
                     int(record["nonce"]),
                 ) + 1
-                aid = derive_action_id(policy_id, signer_address, next_nonce, action_json)
+                aid = derive_action_id(policy_id, signer_address, next_nonce, action_json, policy_instance)
                 if _as_json(verifier.read("get_action", [aid])) or _as_json(verifier.read("get_receipt", [aid])):
                     raise VerificationError(
                         f"{label}: retry nonce {next_nonce} already has action or receipt state; refusing reuse"
@@ -1638,7 +1727,7 @@ def run_live_suite(
                 record["expired_at"] = expired_at
                 record["nonce"] = int(verifier.checkpoint.data.get("last_action_nonce") or record["nonce"]) + 1
                 record["action_id"] = derive_action_id(
-                    policy_id, signer_address, record["nonce"], action_json
+                    policy_id, signer_address, record["nonce"], action_json, policy_instance
                 )
                 record["created_at"] = _now()
                 verifier.checkpoint.save()
@@ -1769,11 +1858,24 @@ def run_live_suite(
         expected_fit="NOT_EVALUATED",
     )
 
-    # Four 250-cent matching actions reach the policy cap exactly; the next
-    # one-cent action must be rejected before semantic evaluation.
+    _verify_delegation_boundary(verifier, policy_id, account, accounts, policy, max_polls)
+    if consumer_contract_address:
+        _verify_consumer_composability(
+            verifier, policy_id, account, consumer_contract_address, policy, max_polls
+        )
+
+    # The delegated child reserves one cent; the principal then uses the
+    # remaining allowance. A further cent must be rejected before semantics.
     quota_fourth_id = ""
-    for label in ("quota_match_2", "quota_match_3", "quota_match_4"):
-        quota_fourth_id, _ = propose_and_evaluate(label, 250, policy["purpose"])
+    consumer_allowance = 1 if consumer_contract_address else 0
+    delegated_allowance = 1
+    final_allowance = 250 - consumer_allowance - delegated_allowance
+    for label, amount in (
+        ("quota_match_2", 250),
+        ("quota_match_3", 250),
+        ("quota_match_4", final_allowance),
+    ):
+        quota_fourth_id, _ = propose_and_evaluate(label, amount, policy["purpose"])
     propose_and_evaluate(
         "aggregate_quota_denial",
         1,
@@ -1790,8 +1892,6 @@ def run_live_suite(
         expected_fit="NOT_EVALUATED",
         frozen=True,
     )
-
-    _verify_delegation_boundary(verifier, policy_id, account, accounts, policy, max_polls)
 
     # Start a fresh policy version to obtain a recent ALLOW receipt, then update
     # again so staleness, rather than the five-minute expiry, explains rejection.
@@ -1874,6 +1974,9 @@ def _prepare_action_only(
     max_polls: int = 30,
 ) -> str:
     """Create or recover a pending action without evaluating it."""
+    policy_instance = int(verifier.read("get_policy_instance", [policy_id]))
+    if policy_instance <= 0:
+        raise VerificationError("cannot prepare an action for an unknown policy instance")
     scenarios = verifier.checkpoint.data.setdefault("scenarios", {})
     action = {
         "action_type": "purchase",
@@ -1889,7 +1992,7 @@ def _prepare_action_only(
         raise VerificationError(f"scenario {label} arguments changed since checkpoint creation")
     if not record:
         nonce = int(verifier.checkpoint.data.get("last_action_nonce") or 0) + 1
-        action_id = derive_action_id(policy_id, signer_address, nonce, action_json)
+        action_id = derive_action_id(policy_id, signer_address, nonce, action_json, policy_instance)
         record = {"nonce": nonce, "action_id": action_id, "action_json_sha256": digest, "created_at": _now()}
         scenarios[label] = record
         verifier.checkpoint.save()
@@ -1912,6 +2015,172 @@ def _prepare_action_only(
     return action_id
 
 
+def _verify_consumer_composability(
+    verifier: StudionetVerifier,
+    policy_id: str,
+    parent: Any,
+    consumer_contract: str,
+    policy: dict[str, Any],
+    max_polls: int,
+) -> None:
+    """Exercise a real failing child, bounded retry, completion, and duplicate rejection."""
+    policy_instance = int(verifier.read("get_policy_instance", [policy_id]))
+    if policy_instance <= 0:
+        raise VerificationError("consumer fixture cannot bind to an unknown policy instance")
+    consumer_contract = to_checksum_address(consumer_contract)
+    verifier.write_once(
+        "consumer_fixture.authorize",
+        "authorize_consumer",
+        [policy_id, consumer_contract],
+        signer=parent,
+        max_polls=max_polls,
+    )
+    nonce = int(verifier.checkpoint.data.get("last_action_nonce") or 0) + 1
+    action = {
+        "action_type": "purchase",
+        "amount": 1,
+        "unit": policy["unit"],
+        "purpose": policy["purpose"],
+        "evidence_claim": "Caller asserts test evidence for two-stage consumer flow",
+    }
+    action_json = json.dumps(action, sort_keys=True, separators=(",", ":"))
+    action_hash = hashlib.sha256(_canonical(action)).hexdigest()
+    action_id = derive_action_id(policy_id, parent.address, nonce, action_json, policy_instance)
+    saved = verifier.checkpoint.data.setdefault("scenarios", {}).get("consumer_fixture_action")
+    if saved and (saved.get("action_id") != action_id or saved.get("nonce") != nonce):
+        raise VerificationError("consumer fixture action differs from its persisted checkpoint")
+    if not saved:
+        saved = {"action_id": action_id, "nonce": nonce, "created_at": _now()}
+        verifier.checkpoint.data["scenarios"]["consumer_fixture_action"] = saved
+        verifier.checkpoint.save()
+
+    action_state = _as_json(verifier.read("get_action", [action_id]))
+    if not action_state:
+        verifier.write_once(
+            "consumer_fixture.submit_action",
+            "submit_action",
+            [policy_id, nonce, action_json],
+            signer=parent,
+            max_polls=max_polls,
+        )
+        action_state = _as_json(verifier.read("get_action", [action_id]))
+    if not isinstance(action_state, dict):
+        raise VerificationError("consumer fixture proposal did not read back after finality")
+    verifier.checkpoint.data["last_action_nonce"] = max(
+        int(verifier.checkpoint.data.get("last_action_nonce") or 0), nonce
+    )
+    verifier.checkpoint.save()
+    if action_state.get("state") == "PENDING":
+        verifier.write_once(
+            "consumer_fixture.evaluate_action",
+            "evaluate_action",
+            [action_id],
+            signer=parent,
+            max_polls=max_polls,
+        )
+    receipt = _as_json(verifier.read("get_receipt", [action_id]))
+    if (
+        not isinstance(receipt, dict)
+        or receipt.get("decision") != "ALLOW"
+        or receipt.get("semantic_fit") != "MATCH"
+        or receipt.get("action_digest") != action_hash
+    ):
+        raise VerificationError("consumer fixture source action lacks a finalized semantic ALLOW receipt")
+    if verifier.read("can_consume_authorization", [action_id, consumer_contract]) is not True:
+        raise VerificationError("consumer contract was not authorized to consume the source receipt")
+
+    def triggered_child(step: str, parent_tx_id: str) -> str:
+        children: list[Any] = []
+        delay = 0.5
+        for attempt in range(RETRY_LIMIT):
+            try:
+                children = verifier.client.get_triggered_transaction_ids(parent_tx_id)
+            except Exception as exc:
+                if attempt + 1 == RETRY_LIMIT:
+                    raise RpcFailure(
+                        f"could not retrieve child transaction IDs for {step} ({type(exc).__name__})"
+                    ) from exc
+            if children:
+                break
+            if attempt + 1 < RETRY_LIMIT:
+                time.sleep(delay)
+                delay = min(delay * 2, 4.0)
+        if len(children) != 1:
+            raise VerificationError(f"{step} emitted {len(children)} child transactions; expected exactly one")
+        child_id = str(children[0])
+        verifier.checkpoint.data.setdefault("observations", {}).setdefault(
+            "consumer_child_transactions", {}
+        )[step] = {"parent_tx_id": parent_tx_id, "child_tx_id": child_id, "observed_at": _now()}
+        verifier.checkpoint.save()
+        return child_id
+
+    request_tx = verifier.write_once(
+        "consumer_fixture.request_with_test_child_error",
+        "request_protected_operation_with_test_child_error",
+        [action_id, action_hash],
+        signer=parent,
+        max_polls=max_polls,
+        contract_address=consumer_contract,
+    )
+    failed_child_id = triggered_child("intentional_child_error", request_tx["tx_id"])
+    failed_child = verifier.poll_finalized(failed_child_id, max_polls=max_polls, expected_execution_error=True)
+    if failed_child.get("execution_result") != "ERROR":
+        raise VerificationError("test child transaction did not finalize with its expected contract error")
+    if verifier.read("can_consume_authorization", [action_id, consumer_contract]) is not True:
+        raise VerificationError("failed child transaction changed BoundaryOS authorization state")
+
+    retry_tx = verifier.write_once(
+        "consumer_fixture.retry_after_finalized_child_error",
+        "retry_pending_consumption",
+        [action_id],
+        signer=parent,
+        max_polls=max_polls,
+        contract_address=consumer_contract,
+    )
+    retry_child_id = triggered_child("recovered_child", retry_tx["tx_id"])
+    if retry_child_id == failed_child_id:
+        raise VerificationError("retry unexpectedly reused the prior child transaction ID")
+    recovered_child = verifier.poll_finalized(retry_child_id, max_polls=max_polls)
+    if recovered_child.get("execution_result") != "SUCCESS":
+        raise VerificationError("recovered consume child transaction did not finalize successfully")
+
+    verifier.write_once(
+        "consumer_fixture.complete_operation",
+        "complete_protected_operation",
+        [action_id],
+        signer=parent,
+        max_polls=max_polls,
+        contract_address=consumer_contract,
+    )
+    if verifier.read("operation_completed", [action_id], contract_address=consumer_contract) is not True:
+        raise VerificationError("consumer did not record completion after finalized child consumption")
+
+    verifier.write_once(
+        "consumer_fixture.reject_repeated_completion",
+        "complete_protected_operation",
+        [action_id],
+        signer=parent,
+        max_polls=max_polls,
+        expected_execution_error=True,
+        contract_address=consumer_contract,
+    )
+    if verifier.read("operation_completed", [action_id], contract_address=consumer_contract) is not True:
+        raise VerificationError("repeated completion changed or removed the completed operation")
+    verifier.checkpoint.data.setdefault("observations", {})["consumer_fixture_composability"] = {
+        "consumer_contract": consumer_contract,
+        "action_id": action_id,
+        "initial_child_tx_id": failed_child_id,
+        "initial_child_status": failed_child.get("status"),
+        "initial_child_execution_result": failed_child.get("execution_result"),
+        "recovery_child_tx_id": retry_child_id,
+        "recovery_child_execution_result": recovered_child.get("execution_result"),
+        "completion_readback": True,
+        "repeated_completion_rejected": True,
+        "observed_at": _now(),
+    }
+    verifier.checkpoint.save()
+
+
 def _verify_delegation_boundary(
     verifier: StudionetVerifier,
     policy_id: str,
@@ -1920,7 +2189,10 @@ def _verify_delegation_boundary(
     policy: dict[str, Any],
     max_polls: int,
 ) -> None:
-    """Register a configured child signer and prove amount-scope widening reverts."""
+    """Prove a widening request fails, then run delegated authorization end to end."""
+    policy_instance = int(verifier.read("get_policy_instance", [policy_id]))
+    if policy_instance <= 0:
+        raise VerificationError("delegation test cannot bind to an unknown policy instance")
     child = None
     for candidate in accounts:
         if candidate.address.lower() == parent.address.lower():
@@ -1940,6 +2212,9 @@ def _verify_delegation_boundary(
             signer=child,
             max_polls=max_polls,
         )
+        child_state = _as_json(verifier.read("get_agent", [child.address]))
+    if child_state.get("policy_id") not in (None, "", policy_id):
+        raise VerificationError("secondary signer is already assigned to a different policy")
     now = int(time.time())
     expires_at = now + 300
     widened_scope = {
@@ -1965,6 +2240,126 @@ def _verify_delegation_boundary(
         "requested_amount": widened_scope["max_amount"],
         "parent_limit": policy["max_amount"],
         "execution_rejected": True,
+        "observed_at": _now(),
+    }
+
+    scope_cap = min(int(policy["max_amount"]), 100)
+    scope_expires_at = now + 3600
+    child_scope = {
+        "action_types": ["purchase"],
+        "max_amount": scope_cap,
+        "valid_from": 0,
+        "valid_until": scope_expires_at,
+        "purpose": policy["purpose"],
+    }
+    child_scope_json = json.dumps(child_scope, sort_keys=True, separators=(",", ":"))
+    delegation_state = _as_json(verifier.read("get_delegation", [child.address]))
+    if not isinstance(delegation_state, dict) or delegation_state.get("parent", "").lower() != parent.address.lower():
+        verifier.write_once(
+            "delegation.accept_bounded_child",
+            "delegate_authority",
+            [policy_id, parent.address, child.address, child_scope_json, scope_expires_at],
+            max_polls=max_polls,
+            signer=parent,
+        )
+        delegation_state = _as_json(verifier.read("get_delegation", [child.address]))
+    if (
+        not isinstance(delegation_state, dict)
+        or delegation_state.get("revoked") is True
+        or int(delegation_state.get("scope", {}).get("max_amount", 0)) != scope_cap
+    ):
+        raise VerificationError("bounded child delegation did not read back at finalized state")
+
+    verifier.write_once(
+        "delegation.authorize_child_consumer",
+        "authorize_consumer",
+        [policy_id, child.address],
+        max_polls=max_polls,
+        signer=parent,
+    )
+    child_action = {
+        "action_type": "purchase",
+        "amount": 1,
+        "unit": policy["unit"],
+        "purpose": policy["purpose"],
+        "evidence_claim": "Caller asserts test evidence for delegated child lifecycle",
+    }
+    child_action_json = json.dumps(child_action, sort_keys=True, separators=(",", ":"))
+    child_action_digest = hashlib.sha256(child_action_json.encode("utf-8")).hexdigest()
+    child_action_id = derive_action_id(
+        policy_id, child.address, 1, child_action_json, policy_instance
+    )
+    child_record = verifier.checkpoint.data.setdefault("scenarios", {}).get("delegation_child_lifecycle")
+    if child_record and (
+        child_record.get("action_id") != child_action_id
+        or child_record.get("action_json_sha256") != child_action_digest
+    ):
+        raise VerificationError("delegated child lifecycle differs from its saved checkpoint")
+    if not child_record:
+        child_record = {
+            "nonce": 1,
+            "action_id": child_action_id,
+            "action_json_sha256": child_action_digest,
+            "created_at": _now(),
+        }
+        verifier.checkpoint.data["scenarios"]["delegation_child_lifecycle"] = child_record
+        verifier.checkpoint.save()
+    child_action_state = _as_json(verifier.read("get_action", [child_action_id]))
+    if not child_action_state:
+        verifier.write_once(
+            "delegation.child_submit",
+            "submit_action",
+            [policy_id, 1, child_action_json],
+            signer=child,
+            max_polls=max_polls,
+        )
+        child_action_state = _as_json(verifier.read("get_action", [child_action_id]))
+    if not isinstance(child_action_state, dict):
+        raise VerificationError("delegated child action was not present at finalized state")
+    if child_action_state.get("state") == "PENDING":
+        verifier.write_once(
+            "delegation.child_evaluate",
+            "evaluate_action",
+            [child_action_id],
+            signer=child,
+            max_polls=max_polls,
+        )
+    child_receipt = _as_json(verifier.read("get_receipt", [child_action_id]))
+    if (
+        not isinstance(child_receipt, dict)
+        or child_receipt.get("decision") != "ALLOW"
+        or child_receipt.get("semantic_fit") != "MATCH"
+        or child_receipt.get("action_digest") != hashlib.sha256(_canonical(child_action)).hexdigest()
+    ):
+        raise VerificationError("delegated child did not receive a matching finalized ALLOW receipt")
+    if verifier.read("can_consume_authorization", [child_action_id, child.address]) is not True:
+        raise VerificationError("delegated child receipt was not consumable before the consume transaction")
+    verifier.write_once(
+        "delegation.child_consume",
+        "consume_authorization",
+        [child_action_id, child_receipt["action_digest"]],
+        signer=child,
+        max_polls=max_polls,
+    )
+    consumed_child_receipt = _as_json(verifier.read("get_receipt", [child_action_id]))
+    if (
+        not isinstance(consumed_child_receipt, dict)
+        or consumed_child_receipt.get("consumed") is not True
+        or consumed_child_receipt.get("consumed_by", "").lower() != child.address.lower()
+        or consumed_child_receipt.get("receipt_digest")
+        != hashlib.sha256(
+            _canonical({key: value for key, value in consumed_child_receipt.items() if key != "receipt_digest"})
+        ).hexdigest()
+        or verifier.read("can_consume_authorization", [child_action_id, child.address]) is not False
+    ):
+        raise VerificationError("delegated child consumption did not read back as finalized and one-time")
+    verifier.checkpoint.data["observations"]["delegation_happy_path"] = {
+        "child_address": child.address,
+        "action_id": child_action_id,
+        "decision": child_receipt.get("decision"),
+        "semantic_fit": child_receipt.get("semantic_fit"),
+        "receipt_consumed": consumed_child_receipt.get("consumed"),
+        "receipt_digest_valid_after_consumption": True,
         "observed_at": _now(),
     }
     verifier.checkpoint.save()

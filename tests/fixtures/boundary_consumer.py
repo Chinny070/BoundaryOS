@@ -10,6 +10,9 @@ from datetime import datetime, timezone
 from genlayer import *
 
 
+MAX_CONSUMPTION_RETRIES = 2
+
+
 def _canonical(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
@@ -32,6 +35,7 @@ class BoundaryConsumer(gl.Contract):
     boundary: Address
     pending: TreeMap[str, str]
     completed: TreeMap[str, bool]
+    retry_count: TreeMap[str, u64]
 
     def __init__(self, boundary_address: str) -> None:
         self.boundary = Address(boundary_address)
@@ -51,7 +55,46 @@ class BoundaryConsumer(gl.Contract):
         if receipt.get("action_digest") != action_digest:
             raise gl.vm.UserError("consumer action digest does not match BoundaryOS receipt")
         self.pending[action_id] = action_digest
+        self.retry_count[action_id] = u64(0)
         boundary.emit(on="finalized").consume_authorization(action_id, action_digest)
+
+    @gl.public.write
+    def request_protected_operation_with_test_child_error(
+        self, action_id: str, action_digest: str
+    ) -> None:
+        """Emit one genuine failing child transaction to test bounded recovery."""
+        if self.pending.get(action_id, "") or self.completed.get(action_id, False):
+            raise gl.vm.UserError("consumer action is already pending or completed")
+        boundary = BoundaryOSInterface(self.boundary)
+        consumer_address = str(gl.message.contract_address)
+        if not boundary.view().can_consume_authorization(action_id, consumer_address):
+            raise gl.vm.UserError("BoundaryOS authorization is absent, stale, or not consumable")
+        receipt_raw = boundary.view().get_receipt(action_id)
+        if not receipt_raw:
+            raise gl.vm.UserError("BoundaryOS receipt is absent")
+        receipt = json.loads(receipt_raw)
+        if receipt.get("action_digest") != action_digest:
+            raise gl.vm.UserError("consumer action digest does not match BoundaryOS receipt")
+        self.pending[action_id] = action_digest
+        self.retry_count[action_id] = u64(0)
+        # This test-only call uses a well-formed but incorrect digest. The
+        # BoundaryOS child transaction must finalize with a contract error.
+        boundary.emit(on="finalized").consume_authorization(action_id, "0" * 64)
+
+    @gl.public.write
+    def retry_pending_consumption(self, action_id: str) -> None:
+        expected_digest = self.pending.get(action_id, "")
+        if not expected_digest or self.completed.get(action_id, False):
+            raise gl.vm.UserError("consumer action is not pending")
+        attempts = int(self.retry_count.get(action_id, u64(0)))
+        if attempts >= MAX_CONSUMPTION_RETRIES:
+            raise gl.vm.UserError("consumer receipt retry limit reached")
+        boundary = BoundaryOSInterface(self.boundary)
+        consumer_address = str(gl.message.contract_address)
+        if not boundary.view().can_consume_authorization(action_id, consumer_address):
+            raise gl.vm.UserError("BoundaryOS authorization is no longer consumable")
+        self.retry_count[action_id] = u64(attempts + 1)
+        boundary.emit(on="finalized").consume_authorization(action_id, expected_digest)
 
     @gl.public.write
     def complete_protected_operation(self, action_id: str) -> None:
@@ -78,6 +121,9 @@ class BoundaryConsumer(gl.Contract):
         # This test-only consumer records the protected operation. It performs
         # no payment or external side effect.
         self.completed[action_id] = True
+        del self.pending[action_id]
+        if action_id in self.retry_count:
+            del self.retry_count[action_id]
 
     @gl.public.view
     def operation_completed(self, action_id: str) -> bool:

@@ -38,11 +38,11 @@ Pass `action_json` with exactly:
 }
 ```
 
-Action/evidence JSON is bounded. The stable action ID commits to policy ID, normalized agent address, nonce, and canonicalized action facts. `preview_action_id(...)` lets clients calculate that ID before submitting. Clients can also derive it locally using SHA-256 over sorted compact JSON. The receipt includes the action digest independently.
+Action/evidence JSON is bounded. The stable action ID commits to policy ID and its monotonic instance generation, normalized agent address, nonce, and canonicalized action facts. `preview_action_id(...)` lets clients calculate that ID before submitting. Clients deriving it locally must include the current generation returned by `get_policy_instance(...)` as well as the canonical action digest. The receipt includes the action digest independently.
 
 ## Lifecycle
 
-1. The agent calls `register_agent(principal_address)` from its own address, selecting the principal that may create its policy. A child must select the same principal as its delegating parent.
+1. The deployer admits the principal with `admit_principal(principal_address)`; admission is bounded and owner-controlled. The agent then calls `register_agent(principal_address)` from its own address, selecting the principal that may create its policy. A child must select the same principal as its delegating parent.
 2. The principal calls `create_policy(...)` for that registered agent.
 3. Each child agent registers itself. Its parent calls `delegate_authority(...)` with a scope no broader than its own. A child can further delegate within the inherited bounds.
 4. The principal authorizes consumer contract addresses with `authorize_consumer(...)`.
@@ -51,7 +51,7 @@ Action/evidence JSON is bounded. The stable action ID commits to policy ID, norm
 7. The consumer reads `get_receipt(action_id)` at finalized state and checks decision, action digest, policy digest/version, chain ID, BoundaryOS contract address, agent, and expiry.
 8. A whitelisted consumer calls `consume_authorization(action_id, expected_action_digest)` once. It must observe the finalized consumption before treating the authorization as spent.
 
-An external consumer must use GenLayer's supported contract/message API and must not assume a synchronous EVM-style cross-contract write. The test-only fixture in [`tests/fixtures/boundary_consumer.py`](../tests/fixtures/boundary_consumer.py) demonstrates a two-stage flow: it checks the current receipt, emits `consume_authorization` on parent finality, then requires a later transaction to read the consumed receipt at finalized state before recording its protected operation. The fixture records no payment or external side effect. Its source can be linted and schema-checked, but it has not yet been deployed or exercised against Studionet; it is not live consumer evidence.
+An external consumer must use GenLayer's supported contract/message API and must not assume a synchronous EVM-style cross-contract write. The test-only fixture in [`tests/fixtures/boundary_consumer.py`](../tests/fixtures/boundary_consumer.py) demonstrates a two-stage flow: it checks the current receipt, emits `consume_authorization` on parent finality, then requires a later transaction to read the consumed receipt at finalized state before recording its protected operation. A test-only method emits one child call with an intentionally incorrect digest to verify that a finalized child execution error leaves the receipt usable; a bounded retry then emits the correct consume call. Repeated completion is rejected. The fixture records no payment or external side effect. Its source is linted and schema-checked, but candidate live consumer evidence remains pending; see the [candidate verification record](evidence/resource-lifecycle-candidate.json).
 
 GenLayer internal write messages are asynchronous and their child transaction reaches consensus independently. Therefore the flow is explicitly multi-transaction: submit the consumer request, wait for the emitted BoundaryOS consume transaction to finalize, then call the consumer completion method. A receipt consumption is not proof that the external operation occurred, and the repository does not claim atomic cross-contract authorization. See the official [Intelligent Contract interaction guide](https://docs.genlayer.com/developers/intelligent-contracts/features/interacting-with-intelligent-contracts) and [message lifecycle reference](https://docs.genlayer.com/developers/intelligent-contracts/features/messages).
 

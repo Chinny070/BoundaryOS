@@ -1,0 +1,90 @@
+{
+  "record_type": "BoundaryOS resource lifecycle candidate verification",
+  "recorded_at": "2026-10-17",
+  "base_commit": "906ddf423854d01ab0363bcef3d940b54be5d238",
+  "candidate_commit": null,
+  "candidate_commit_note": "This record is committed in the candidate commit; source identity is recorded by file hash to avoid a self-referential commit hash.",
+  "candidate_contract_source": {
+    "path": "contracts/boundary_os.py",
+    "sha256": "77c07245b23c77cf7d6a286df92e4a3f99d0ffc89fefbe603e87c979ef5dfbc9",
+    "deployed": false
+  },
+  "last_verified_deployment": {
+    "network": "GenLayer Studionet",
+    "chain_id": 61999,
+    "address": "0xb95a995A42E68455223DCC05403c98fDf40657FB",
+    "source_commit": "df980984f752d2cf367743d4f0a458e8af5712e0",
+    "source_sha256": "86720777484aea493439d960cb741639b2320f00d81bd790b3dc14ee547f0937",
+    "candidate_source_parity": false,
+    "note": "This is the last verified deployment for the previous source. No candidate deployment or live write was attempted."
+  },
+  "changes_under_test": [
+    "Owner-controlled admission bounds principal identities to 16.",
+    "Per-principal limits bound active agents to 8 and active policies to 4.",
+    "Expired proposal slots can be reclaimed without resetting the agent nonce.",
+    "Revoked or expired policies can be reclaimed after dependent agents and actions are cleared.",
+    "Consumer allowlist slots are recycled on consumer revocation.",
+    "Policy-instance generations prevent action-ID reuse after policy reclamation and recreation.",
+    "Policy-wide spend state uses bounded policy-instance/version buckets.",
+    "Aggregate quota does not reset if consensus time moves to an earlier bucket; it fails closed."
+  ],
+  "local_verification": {
+    "compileall": {
+      "command": "python -m compileall -q contracts tests",
+      "status": "passed"
+    },
+    "resumable_harness_tests": {
+      "command": "python -m pytest tests/integration/test_studionet_resume_helpers.py -q --tb=short",
+      "passed": 18,
+      "failed": 0,
+      "status": "passed"
+    },
+    "direct_mode": {
+      "command": ".venv-release\\Scripts\\python.exe -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py -q --tb=short",
+      "direct_contract_tests": 49,
+      "failed_before_contract_execution": 49,
+      "error": "PermissionError: [WinError 32] The process cannot access the file because it is being used by another process",
+      "failure_site": "gltest.direct.loader._inject_message_to_fd0 unlinking a locked temporary file",
+      "status": "blocked_by_windows_runner"
+    },
+    "genvm": {
+      "pinned_runner": "v0.2.16",
+      "contract": {
+        "lint_checks": 3,
+        "schema_methods": 29,
+        "typecheck": "passed"
+      },
+      "consumer_fixture": {
+        "lint_checks": 3,
+        "schema_methods": 5,
+        "typecheck": "passed"
+      },
+      "status": "passed"
+    },
+    "release_configuration": "passed"
+  },
+  "live_verification": {
+    "semantic_match": "not_run_for_candidate",
+    "semantic_mismatch": "not_run_for_candidate",
+    "receipt_creation_and_consumption": "not_run_for_candidate",
+    "replay_rejection": "not_run_for_candidate",
+    "policy_revocation_and_agent_freeze": "not_run_for_candidate",
+    "delegated_child_allow_and_consumption": "not_run_for_candidate",
+    "consumer_child_error_recovery_and_repeated_completion": "not_run_for_candidate",
+    "aggregate_quota": "not_run_for_candidate",
+    "finalized_state_readback": "not_run_for_candidate",
+    "deployed_source_identity": "not_run_for_candidate",
+    "reason": "The execution session has CODEX_SANDBOX_NETWORK_DISABLED=1. No live transaction was submitted, and no live success is claimed."
+  },
+  "readiness": {
+    "status": "not_submission_ready",
+    "required_next_gates": [
+      "Run all Direct Mode contract and harness tests in a compatible runner.",
+      "Complete a live delegated-child ALLOW, evaluation, and receipt-consumption lifecycle.",
+      "Deploy the test-only consumer fixture and verify child error recovery and repeated completion behavior on a compatible environment.",
+      "Deploy the exact candidate source to Studionet only after local gates pass.",
+      "Verify FINALIZED transaction status, consensus outcome, deployed source hash/parity, and representative LATEST_FINAL state readbacks."
+    ]
+  },
+  "evidence_provenance": "CALLER_ASSERTED"
+}

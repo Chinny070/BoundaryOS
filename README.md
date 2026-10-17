@@ -2,13 +2,13 @@
 
 BoundaryOS is a standalone GenLayer Intelligent Contract for checking whether an authenticated agent's proposed action fits a principal's current delegation policy. It combines deterministic permission and quota checks with an independently repeated semantic purpose judgment, then stores an action-bound, version-bound receipt.
 
-**Current release status:** The corrected BoundaryOS source is deployed as the canonical Studionet release at `0xb95a995A42E68455223DCC05403c98fDf40657FB`. Its deployment transaction finalized with `MAJORITY_AGREE` and VM `SUCCESS`; retrieved deployed source matches the frozen source commit. The full canonical live matrix passed for semantic ALLOW and DENY, deterministic denial, receipt creation/consumption/replay, aggregate quota, freeze, delegation limits, policy freshness, and revocation, with finalized-state readback. Locally, 61 Direct Mode and harness tests pass; compileall, pinned GenVM lint/schema/typecheck, and release configuration pass. Provenance remains `CALLER_ASSERTED`; unattributed signer nonce gaps and the predecessor's unresolved nonce-2624 intent are documented and were not retried. BoundaryOS is technically **submission-ready with these limitations disclosed**. See [Deployment](docs/DEPLOYMENT.md), [canonical release evidence](docs/evidence/studionet-canonical-release.json), [historical predecessor evidence](docs/evidence/studionet-legacy-canonical-history.json), and [Submission](SUBMISSION.md).
+**Release status:** The last verified Studionet deployment is `0xb95a995A42E68455223DCC05403c98fDf40657FB`, whose source and live transaction evidence are recorded in [Deployment](docs/DEPLOYMENT.md). The current source adds admission limits and state reclamation to fix lifetime state exhaustion; this candidate is **not deployed**, has no verified source parity with that address, and is **not submission-ready yet**. Its 18 harness tests and pinned GenVM checks pass. The 49 Direct Mode tests could not reach contract execution in this Windows run because the GenLayer test runner failed unlinking a locked temporary file (`WinError 32`). Live delegated-child and consumer-composability checks also remain pending. Candidate results are recorded in [resource lifecycle evidence](docs/evidence/resource-lifecycle-candidate.json). Evidence provenance remains `CALLER_ASSERTED`.
 
 ## What the contract protects
 
 The contract can protect only actions whose consumers check BoundaryOS. It does not stop an unrelated off-chain agent from acting, prove the truth of caller-submitted evidence, or establish malicious intent.
 
-Principals authorize only agents that first register themselves. Each policy has immutable numbered versions and a canonical SHA-256 commitment. Agents submit bounded action facts with a strictly increasing nonce. Deterministic code enforces owner identity, action scope, hard denies, integer amount and unit constraints, aggregate quotas, validity windows, freezes, delegation depth/subsets, revocation, policy freshness, and receipt consumption. Only an action that passes those gates reaches GenLayer's semantic evaluator.
+The contract owner admits a bounded set of principals. Admitted principals authorize only agents that first register themselves. Active agent and policy quotas are partitioned per principal; revoked or expired state can be reclaimed after its live references are cleared. Each policy has immutable numbered versions and a canonical SHA-256 commitment. Agents submit bounded action facts with a strictly increasing nonce. Deterministic code enforces owner identity, action scope, hard denies, integer amount and unit constraints, aggregate quotas, validity windows, freezes, delegation depth/subsets, revocation, policy freshness, and receipt consumption. Only an action that passes those gates reaches GenLayer's semantic evaluator.
 
 Evidence is explicitly `CLAIM_ONLY`: the action's purpose and evidence text are assertions supplied by the caller. Every validator sees the same bounded claims, but this contract does not fetch or authenticate external records. Consumers must not treat a receipt as proof that the claim is true.
 
@@ -19,7 +19,7 @@ Evidence is explicitly `CLAIM_ONLY`: the action's purpose and evidence text are 
 1. An agent registers from its own sender address and selects the principal it accepts.
 2. A principal creates a typed policy for that registered agent.
 3. Authorized agents may delegate within the parent's exact action, amount, purpose, and time bounds. Chains are limited to four levels.
-4. An agent submits an action with a monotonically increasing nonce. Its stable ID commits to policy, agent, nonce, and canonical action facts. The proposal expires after ten minutes.
+4. An agent submits an action with a monotonically increasing nonce. Its ID commits to policy ID and instance generation, agent, nonce, and canonical action facts, so reclaimed policy IDs do not collide with old proposals. The proposal expires after ten minutes.
 5. Evaluation rejects stale, expired, frozen, revoked, hard-denied, over-limit, wrong-unit, and over-quota proposals deterministically.
 6. Only the semantic purpose check calls `gl.nondet.exec_prompt` inside `gl.vm.run_nondet_unsafe`. Validators independently rerun the classifier and must agree on the bounded `MATCH`, `MISMATCH`, or `UNCLEAR` field. Ambiguity requires owner review; disagreement can leave the GenLayer transaction undetermined.
 7. An `ALLOW` receipt is bound to the action digest, policy version and digest, agent, chain, contract instance, and a short expiry. A whitelisted consumer can consume it once. Policy changes, revocations, freezes, expiry, and prior consumption make it unusable.
@@ -30,7 +30,8 @@ Policy-wide amount aggregation is shared across agents and their descendants for
 
 | Method | Purpose |
 |---|---|
-| `register_agent(principal_address)` | Agent opts in from its own address and selects one principal |
+| `admit_principal(principal_address)` / `remove_principal(principal_address)` | Deployer allocates a bounded principal slot; an empty principal can release it |
+| `register_agent(principal_address)` / `unregister_agent(agent_address)` | Agent opts in from its own address and selects one principal; safely unregisters after policy/action cleanup |
 | `create_policy(policy_id, agent_address, policy_json)` | Principal creates immutable version 1 |
 | `update_policy(policy_id, policy_json)` | Principal appends a new immutable version |
 | `delegate_authority(...)` / `revoke_delegation(...)` | Bounded, non-escalating agent delegation |
@@ -44,6 +45,7 @@ Policy-wide amount aggregation is shared across agents and their descendants for
 | `can_consume_authorization(...)` / `consume_authorization(...)` | Checks and consumes a fresh `ALLOW` once |
 | `get_policy(...)`, `get_action(...)`, `get_receipt(...)`, `get_agent(...)`, `get_delegation(...)` | Bounded machine-readable reads |
 | `get_policy_diff(...)` | Reports permission expansion between immutable versions |
+| `reclaim_expired_action(action_id)` / `reclaim_policy(policy_id)` | Recycles expired proposal/receipt state and revoked or expired policy state after dependent agents and actions are removed |
 
 The policy JSON schema is documented in [Integration](docs/INTEGRATION.md). Amounts are non-negative integers in a single explicit uppercase unit per policy; no floating-point values or cross-unit sums are accepted.
 

@@ -3,6 +3,7 @@ import hashlib
 from datetime import datetime, timezone
 
 import pytest
+from eth_account import Account
 from eth_utils import to_checksum_address
 
 
@@ -51,6 +52,8 @@ def action(**changes):
 
 def setup_contract(direct_vm, direct_deploy, agent, owner, consumer=None):
     contract = direct_deploy(CONTRACT)
+    direct_vm.sender = contract.owner
+    contract.admit_principal(address(owner))
     direct_vm.sender = agent
     contract.register_agent(address(owner))
     direct_vm.sender = owner
@@ -106,6 +109,8 @@ def test_register_policy_and_read_immutable_version(direct_vm, direct_deploy, di
 
 def test_only_the_principal_selected_by_the_agent_can_create_its_policy(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
     contract = direct_deploy(CONTRACT)
+    direct_vm.sender = contract.owner
+    contract.admit_principal(address(direct_bob))
     direct_vm.sender = direct_alice
     contract.register_agent(address(direct_bob))
     direct_vm.sender = direct_charlie
@@ -181,6 +186,24 @@ def test_aggregate_cap_blocks_split_purchases(direct_vm, direct_deploy, direct_a
     ]
 
 
+def test_aggregate_bucket_cannot_reset_when_consensus_time_regresses(
+    direct_vm, direct_deploy, direct_alice, direct_bob
+):
+    direct_vm.warp("2026-10-13T01:00:01Z")
+    contract = setup_contract(direct_vm, direct_deploy, direct_alice, direct_bob)
+    mock_fit(direct_vm, "MATCH")
+    _, first = submit_and_evaluate(
+        direct_vm, contract, direct_alice, 1, action(amount=25)
+    )
+    assert first["decision"] == "ALLOW"
+
+    direct_vm.warp("2026-10-13T00:00:01Z")
+    second_id = contract.submit_action("office", 2, action(amount=25))
+    second = json.loads(contract.evaluate_action(second_id))
+    assert second["decision"] == "DENY_TIME_REGRESSION"
+    assert second["semantic_fit"] == "NOT_EVALUATED"
+
+
 def test_policy_wide_aggregate_cap_spans_parent_and_delegated_child(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
     contract = setup_contract(direct_vm, direct_deploy, direct_alice, direct_bob)
     direct_vm.sender = direct_charlie
@@ -202,6 +225,43 @@ def test_policy_wide_aggregate_cap_spans_parent_and_delegated_child(direct_vm, d
     assert child_second["decision"] == "ALLOW"
     assert parent_third["decision"] == "DENY_AGGREGATE_CAP"
     assert parent_third["aggregate_scope"] == "POLICY_VERSION_AND_TIME_WINDOW"
+
+
+def test_delegated_child_authorization_and_receipt_consumption_happy_path(
+    direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie
+):
+    contract = setup_contract(
+        direct_vm, direct_deploy, direct_alice, direct_bob, consumer=direct_charlie
+    )
+    direct_vm.sender = direct_charlie
+    contract.register_agent(address(direct_bob))
+    scope = {
+        "action_types": ["purchase"],
+        "max_amount": 25,
+        "valid_from": 0,
+        "valid_until": 3_000_000_000,
+        "purpose": "purchase approved office supplies",
+    }
+    direct_vm.sender = direct_alice
+    contract.delegate_authority(
+        "office", address(direct_alice), address(direct_charlie), json.dumps(scope), 3_000_000_000
+    )
+    mock_fit(direct_vm)
+    direct_vm.sender = direct_charlie
+    action_id = contract.submit_action("office", 1, action(amount=25))
+    receipt = json.loads(contract.evaluate_action(action_id))
+    assert receipt["decision"] == "ALLOW"
+    assert contract.get_action(action_id) != ""
+
+    direct_vm.sender = direct_charlie
+    contract.consume_authorization(action_id, receipt["action_digest"])
+    consumed = json.loads(contract.get_receipt(action_id))
+    assert consumed["consumed"] is True
+    assert consumed["consumed_by"].lower() == address(direct_charlie).lower()
+    digest = consumed.pop("receipt_digest")
+    assert digest == hashlib.sha256(
+        json.dumps(consumed, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
 
 
 def test_wrong_unit_fails_closed(direct_vm, direct_deploy, direct_alice, direct_bob):
@@ -634,6 +694,141 @@ def test_expired_pending_proposal_cannot_be_evaluated(direct_vm, direct_deploy, 
     direct_vm.warp("2026-10-13T00:10:01Z")
     expired = json.loads(contract.evaluate_action(action_id))
     assert expired["decision"] == "DENY_ACTION_EXPIRED"
+
+
+def test_agent_registration_capacity_isolated_per_principal_and_reclaimable(
+    direct_vm, direct_deploy, direct_bob, direct_charlie
+):
+    contract = direct_deploy(CONTRACT)
+    attacker = Account.create()
+    direct_vm.sender = attacker
+    with direct_vm.expect_revert("principal is not admitted"):
+        contract.register_agent(address(direct_bob))
+
+    direct_vm.sender = contract.owner
+    contract.admit_principal(address(direct_bob))
+    agents = [Account.create() for _ in range(9)]
+    for agent in agents[:8]:
+        direct_vm.sender = agent
+        contract.register_agent(address(direct_bob))
+
+    direct_vm.sender = agents[8]
+    with direct_vm.expect_revert("principal agent capacity reached"):
+        contract.register_agent(address(direct_bob))
+
+    # A Sybil cannot self-admit a second principal. Owner admission opens an
+    # isolated quota for that principal without changing the first quota.
+    with direct_vm.expect_revert("principal is not admitted"):
+        contract.register_agent(address(direct_charlie))
+    direct_vm.sender = contract.owner
+    contract.admit_principal(address(direct_charlie))
+    direct_vm.sender = agents[8]
+    contract.register_agent(address(direct_charlie))
+    assert int(contract.principal_agent_count[address(direct_bob)]) == 8
+
+    # The registering agent can release an unused slot; another address can
+    # then register under the same principal.
+    direct_vm.sender = agents[0]
+    contract.unregister_agent(address(agents[0].address))
+    replacement = Account.create()
+    direct_vm.sender = replacement
+    contract.register_agent(address(direct_bob))
+    assert int(contract.principal_agent_count[address(direct_bob)]) == 8
+
+
+def test_global_principal_admission_slots_are_reclaimed_only_after_empty_exit(
+    direct_vm, direct_deploy
+):
+    contract = direct_deploy(CONTRACT)
+    principals = [Account.create() for _ in range(17)]
+    direct_vm.sender = contract.owner
+    for principal in principals[:16]:
+        contract.admit_principal(principal.address)
+    with direct_vm.expect_revert("admitted principal capacity reached"):
+        contract.admit_principal(principals[16].address)
+
+    with direct_vm.expect_revert("principal still owns registered agents or policies"):
+        # Register state under the first principal before trying to release it.
+        direct_vm.sender = principals[0]
+        contract.register_agent(principals[0].address)
+        direct_vm.sender = contract.owner
+        contract.remove_principal(principals[0].address)
+
+    direct_vm.sender = principals[0]
+    contract.unregister_agent(principals[0].address)
+    direct_vm.sender = contract.owner
+    contract.remove_principal(principals[0].address)
+    contract.admit_principal(principals[16].address)
+    assert int(contract.principal_count) == 16
+
+
+def test_policy_capacity_released_after_expiry_agent_and_policy_reclamation(
+    direct_vm, direct_deploy, direct_bob
+):
+    direct_vm.warp("2026-10-13T00:00:00Z")
+    contract = direct_deploy(CONTRACT)
+    owner = address(direct_bob)
+    direct_vm.sender = contract.owner
+    contract.admit_principal(owner)
+    agent_accounts = [Account.create() for _ in range(5)]
+    for index, account in enumerate(agent_accounts[:4]):
+        direct_vm.sender = account
+        contract.register_agent(owner)
+        direct_vm.sender = direct_bob
+        contract.create_policy(f"tenant-policy-{index}", address(account.address), policy())
+
+    direct_vm.sender = agent_accounts[4]
+    contract.register_agent(owner)
+    direct_vm.sender = direct_bob
+    with direct_vm.expect_revert("principal policy capacity reached"):
+        contract.create_policy("tenant-policy-over-cap", address(agent_accounts[4].address), policy())
+
+    # A principal cannot reclaim a still-live policy. After its policy window
+    # ends, unregistering the root and reclaiming versions frees the slot.
+    with direct_vm.expect_revert("policy must be revoked or expired before reclamation"):
+        contract.reclaim_policy("tenant-policy-0")
+    direct_vm.warp("2100-01-01T00:00:00Z")
+    old_action_id = contract.preview_action_id(
+        "tenant-policy-0", address(agent_accounts[0].address), 1, json.dumps(action())
+    )
+    contract.unregister_agent(address(agent_accounts[0].address))
+    contract.reclaim_policy("tenant-policy-0")
+    direct_vm.sender = agent_accounts[0]
+    contract.register_agent(owner)
+    direct_vm.sender = direct_bob
+    contract.create_policy(
+        "tenant-policy-0",
+        address(agent_accounts[0].address),
+        policy(valid_until=4_500_000_000),
+    )
+    new_action_id = contract.preview_action_id(
+        "tenant-policy-0", address(agent_accounts[0].address), 1, json.dumps(action())
+    )
+    assert old_action_id != new_action_id
+    assert int(contract.principal_policy_count[owner]) == 4
+    assert int(contract.policy_count) == 4
+
+
+def test_expired_proposal_slots_can_be_reclaimed_without_nonce_reuse(
+    direct_vm, direct_deploy, direct_alice, direct_bob
+):
+    direct_vm.warp("2026-10-13T00:00:00Z")
+    contract = setup_contract(direct_vm, direct_deploy, direct_alice, direct_bob)
+    action_ids = []
+    for nonce in range(1, 17):
+        direct_vm.sender = direct_alice
+        action_ids.append(contract.submit_action("office", nonce, action()))
+    with direct_vm.expect_revert("agent active proposal capacity reached; reclaim an expired action"):
+        contract.submit_action("office", 17, action())
+
+    direct_vm.warp("2026-10-13T00:10:01Z")
+    direct_vm.sender = direct_bob
+    contract.reclaim_expired_action(action_ids[0])
+    assert contract.get_action(action_ids[0]) == ""
+    direct_vm.sender = direct_alice
+    replacement = contract.submit_action("office", 17, action())
+    assert contract.get_action(replacement) != ""
+    assert int(contract.action_count) == 16
 
 
 def test_independent_validator_rejects_a_well_formed_forged_allow(direct_vm, direct_deploy, direct_alice, direct_bob):

@@ -1,6 +1,12 @@
 # Deployment and verification record
 
-## Current canonical release
+## Current candidate status
+
+The last verified Studionet instance below remains a valid historical deployment record for its frozen source. The working-tree source now includes bounded principal admission and active-state reclamation to address lifetime state exhaustion. Those source changes have not been deployed, and the deployed instance does not have verified parity with this candidate. See [resource lifecycle candidate evidence](evidence/resource-lifecycle-candidate.json).
+
+Current candidate verification is incomplete: the 18 resumable-harness helper tests pass; pinned GenVM lint/schema/typecheck pass; the 49 Direct Mode contract tests fail before contract loading because `gltest` cannot unlink its locked Windows temporary file (`WinError 32`). Live delegation happy-path and consumer-composability tests have not been run on this candidate. This session has `CODEX_SANDBOX_NETWORK_DISABLED=1`, so no candidate deployment or Studionet writes were attempted. Do not use the current candidate as a release deployment until the Direct Mode suite executes successfully in a compatible runner and the candidate's live source, consensus, and state readbacks are established.
+
+## Last verified Studionet deployment
 
 BoundaryOS is deployed on GenLayer Studionet at `0xb95a995A42E68455223DCC05403c98fDf40657FB`. This is the corrected source release; the predecessor at `0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF` remains historical and is not the current release target.
 
@@ -64,4 +70,4 @@ For Windows, run the linter from the project release environment with `PYTHONIOE
 
 ## Readiness
 
-**Technically submission-ready, with the documented provenance and nonce-history limitations.** The deployed canonical source matches the frozen release commit; the complete live authorization, denial, consumption, replay, quota, freeze, delegation, freshness, and revocation checks finalized with independent `LATEST_FINAL` state readback. Direct Mode, GenVM checks, SDK schema, typecheck, and release configuration pass. Do not present caller-asserted evidence as independently verified fact, and retain the unattributed signer nonce gaps and predecessor nonce-2624 uncertainty in any submission context.
+The prior frozen deployment has substantial documented live evidence, but the current source candidate is **not submission-ready**. The active state-isolation and reclamation changes require a successful Direct Mode run, live delegated-child authorization/consumption, live consumer-composability verification, fresh canonical deployment, finality, independent deployed-source parity, and representative finalized-state readback. Keep the old deployment and its evidence identified as the last verified release until these candidate gates pass. Caller-asserted evidence, unattributed signer nonce gaps, and predecessor nonce-2624 uncertainty remain documented limitations.

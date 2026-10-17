@@ -12,11 +12,15 @@ from genlayer import *
 
 MAX_JSON_BYTES = 4096
 MAX_TEXT_BYTES = 1024
-MAX_ACTIONS = 4096
+MAX_ACTIONS = 2048
 MAX_AGENTS = 128
 MAX_POLICIES = 64
+MAX_PRINCIPALS = 16
+MAX_AGENTS_PER_PRINCIPAL = 8
+MAX_POLICIES_PER_PRINCIPAL = 4
+MAX_ACTIVE_ACTIONS_PER_AGENT = 16
 MAX_POLICY_VERSIONS = 32
-MAX_DELEGATIONS = 256
+MAX_DELEGATIONS = 112
 MAX_DELEGATION_DEPTH = 4
 MAX_ACTION_TYPES = 16
 MAX_WINDOW_SECONDS = 2_592_000
@@ -78,6 +82,18 @@ class BoundaryOS(gl.Contract):
     agent_count: u64
     policy_count: u64
     action_count: u64
+    policy_action_count: TreeMap[str, u64]
+    active_action_by_agent: TreeMap[str, u64]
+    principal_agent_count: TreeMap[str, u64]
+    principal_policy_count: TreeMap[str, u64]
+    policy_agent_count: TreeMap[str, u64]
+    agent_child_count: TreeMap[str, u64]
+    admitted_principals: TreeMap[str, bool]
+    principal_count: u64
+    consumer_slots: TreeMap[str, str]
+    policy_instance: TreeMap[str, u64]
+    policy_sequence: u64
+    spent_bucket: TreeMap[str, u64]
     actions: TreeMap[str, str]
     last_nonce: TreeMap[str, u64]
     receipts: TreeMap[str, str]
@@ -93,6 +109,8 @@ class BoundaryOS(gl.Contract):
         self.policy_count = u64(0)
         self.delegation_count = u64(0)
         self.action_count = u64(0)
+        self.principal_count = u64(0)
+        self.policy_sequence = u64(0)
 
     def _address(self, value: str, label: str) -> str:
         try:
@@ -304,15 +322,111 @@ class BoundaryOS(gl.Contract):
         return "PASS"
 
     @gl.public.write
+    def admit_principal(self, principal_address: str) -> None:
+        principal = self._address(principal_address, "principal_address")
+        if gl.message.sender_address != self.owner:
+            raise gl.vm.UserError("only the contract owner may admit a principal")
+        if self.admitted_principals.get(principal, False):
+            return
+        if int(self.principal_count) >= MAX_PRINCIPALS:
+            raise gl.vm.UserError("admitted principal capacity reached")
+        self.admitted_principals[principal] = True
+        self.principal_count = u64(int(self.principal_count) + 1)
+
+    @gl.public.write
+    def remove_principal(self, principal_address: str) -> None:
+        principal = self._address(principal_address, "principal_address")
+        if not self.admitted_principals.get(principal, False):
+            raise gl.vm.UserError("principal is not admitted")
+        if str(gl.message.sender_address) not in (str(self.owner), principal):
+            raise gl.vm.UserError("only the principal or contract owner may remove admission")
+        if (
+            int(self.principal_agent_count.get(principal, u64(0))) != 0
+            or int(self.principal_policy_count.get(principal, u64(0))) != 0
+        ):
+            raise gl.vm.UserError("principal still owns registered agents or policies")
+        del self.admitted_principals[principal]
+        self.principal_count = u64(max(0, int(self.principal_count) - 1))
+
+    @gl.public.view
+    def is_principal_admitted(self, principal_address: str) -> bool:
+        principal = self._address(principal_address, "principal_address")
+        return self.admitted_principals.get(principal, False)
+
+    @gl.public.write
     def register_agent(self, principal_address: str) -> None:
         agent = str(gl.message.sender_address)
         if self.agents.get(agent, ZERO) != ZERO:
             raise gl.vm.UserError("agent already registered")
+        principal = self._address(principal_address, "principal_address")
+        if not self.admitted_principals.get(principal, False):
+            raise gl.vm.UserError("principal is not admitted")
         if int(self.agent_count) >= MAX_AGENTS:
             raise gl.vm.UserError("agent registry capacity reached")
-        principal = self._address(principal_address, "principal_address")
+        principal_count = int(self.principal_agent_count.get(principal, u64(0)))
+        if principal_count >= MAX_AGENTS_PER_PRINCIPAL:
+            raise gl.vm.UserError("principal agent capacity reached")
         self.agents[agent] = principal
         self.agent_count = u64(int(self.agent_count) + 1)
+        self.principal_agent_count[principal] = u64(principal_count + 1)
+
+    @gl.public.write
+    def unregister_agent(self, agent_address: str) -> None:
+        agent = self._address(agent_address, "agent_address")
+        principal = self.agents.get(agent, ZERO)
+        if principal == ZERO:
+            raise gl.vm.UserError("agent is not registered")
+        policy_id = self.agent_policy.get(agent, ZERO)
+        sender = str(gl.message.sender_address)
+        if sender != agent and (policy_id == ZERO or sender != self.policy_owner.get(policy_id, ZERO)):
+            raise gl.vm.UserError("only the agent or its policy owner may unregister it")
+        if int(self.agent_child_count.get(agent, u64(0))) != 0:
+            raise gl.vm.UserError("agent still has delegated children")
+        if policy_id != ZERO:
+            version = int(self.policy_versions.get(policy_id, u64(0)))
+            policy = self._policy(policy_id, version)
+            delegation_raw = self.delegations.get(agent, ZERO)
+            policy_live = self.policy_active.get(policy_id, False) and _now() < policy["valid_until"]
+            if delegation_raw != ZERO:
+                delegation = json.loads(delegation_raw)
+                if not delegation["revoked"] and _now() < delegation["expires_at"]:
+                    raise gl.vm.UserError("delegation is still live")
+            elif policy_live:
+                raise gl.vm.UserError("root agent belongs to a live policy")
+            if int(self.active_action_by_agent.get(agent, u64(0))) != 0:
+                raise gl.vm.UserError("reclaim this agent's expired actions before unregistering")
+            if delegation_raw != ZERO:
+                parent = json.loads(delegation_raw)["parent"]
+                remaining_children = max(
+                    0, int(self.agent_child_count.get(parent, u64(0))) - 1
+                )
+                if remaining_children:
+                    self.agent_child_count[parent] = u64(remaining_children)
+                elif parent in self.agent_child_count:
+                    del self.agent_child_count[parent]
+                self.delegation_count = u64(max(0, int(self.delegation_count) - 1))
+                del self.delegations[agent]
+            del self.agent_policy[agent]
+            remaining_policy_agents = max(
+                0, int(self.policy_agent_count.get(policy_id, u64(0))) - 1
+            )
+            if remaining_policy_agents:
+                self.policy_agent_count[policy_id] = u64(remaining_policy_agents)
+            elif policy_id in self.policy_agent_count:
+                del self.policy_agent_count[policy_id]
+        del self.agents[agent]
+        if agent in self.frozen_agents:
+            del self.frozen_agents[agent]
+        if agent in self.last_nonce:
+            del self.last_nonce[agent]
+        self.agent_count = u64(max(0, int(self.agent_count) - 1))
+        remaining_principal_agents = max(
+            0, int(self.principal_agent_count.get(principal, u64(0))) - 1
+        )
+        if remaining_principal_agents:
+            self.principal_agent_count[principal] = u64(remaining_principal_agents)
+        elif principal in self.principal_agent_count:
+            del self.principal_agent_count[principal]
 
     @gl.public.write
     def create_policy(self, policy_id: str, agent_address: str, policy_json: str) -> str:
@@ -331,10 +445,15 @@ class BoundaryOS(gl.Contract):
             raise gl.vm.UserError("policy_id already exists")
         if int(self.policy_count) >= MAX_POLICIES:
             raise gl.vm.UserError("policy registry capacity reached")
+        owner_policy_count = int(self.principal_policy_count.get(owner, u64(0)))
+        if owner_policy_count >= MAX_POLICIES_PER_PRINCIPAL:
+            raise gl.vm.UserError("principal policy capacity reached")
         policy = self._validate_policy(_parse_object(policy_json, MAX_JSON_BYTES, "policy"))
         now = _now()
         if policy["valid_until"] <= now:
             raise gl.vm.UserError("policy must have a future validity window")
+        if int(self.policy_sequence) >= 2**64 - 1:
+            raise gl.vm.UserError("policy instance sequence capacity reached")
         self.policies[f"{policy_id}:1"] = _canonical(policy)
         self.policy_versions[policy_id] = u64(1)
         self.policy_owner[policy_id] = owner
@@ -342,7 +461,63 @@ class BoundaryOS(gl.Contract):
         self.policy_active[policy_id] = True
         self.agent_policy[agent] = policy_id
         self.policy_count = u64(int(self.policy_count) + 1)
+        self.principal_policy_count[owner] = u64(owner_policy_count + 1)
+        self.policy_agent_count[policy_id] = u64(1)
+        self.policy_sequence = u64(int(self.policy_sequence) + 1)
+        self.policy_instance[policy_id] = self.policy_sequence
         return _digest(_canonical(policy))
+
+    @gl.public.write
+    def reclaim_policy(self, policy_id: str) -> None:
+        policy_id = self._policy_id(policy_id)
+        owner = self.policy_owner.get(policy_id, ZERO)
+        version = int(self.policy_versions.get(policy_id, u64(0)))
+        if owner == ZERO or version == 0:
+            raise gl.vm.UserError("unknown policy")
+        current = self._policy(policy_id, version)
+        if self.policy_active.get(policy_id, False) and _now() < current["valid_until"]:
+            raise gl.vm.UserError("policy must be revoked or expired before reclamation")
+        if int(self.policy_agent_count.get(policy_id, u64(0))) != 0:
+            raise gl.vm.UserError("unregister every policy agent before reclamation")
+        if int(self.policy_action_count.get(policy_id, u64(0))) != 0:
+            raise gl.vm.UserError("reclaim every expired action before policy reclamation")
+        if str(gl.message.sender_address) != owner:
+            raise gl.vm.UserError("only the policy owner may reclaim policy state")
+
+        for policy_version in range(1, version + 1):
+            del self.policies[f"{policy_id}:{policy_version}"]
+            spend_key = f"{policy_id}:{int(self.policy_instance[policy_id])}:{policy_version}"
+            if spend_key in self.spent:
+                del self.spent[spend_key]
+            if spend_key in self.spent_bucket:
+                del self.spent_bucket[spend_key]
+        for slot in range(MAX_CONSUMERS):
+            slot_key = f"{policy_id}:{slot}"
+            consumer = self.consumer_slots.get(slot_key, ZERO)
+            if consumer != ZERO:
+                consumer_key = f"{policy_id}:{consumer}"
+                if consumer_key in self.consumers:
+                    del self.consumers[consumer_key]
+                del self.consumer_slots[slot_key]
+        del self.policy_versions[policy_id]
+        del self.policy_owner[policy_id]
+        del self.policy_root_agent[policy_id]
+        del self.policy_active[policy_id]
+        del self.policy_instance[policy_id]
+        if policy_id in self.policy_action_count:
+            del self.policy_action_count[policy_id]
+        if policy_id in self.policy_agent_count:
+            del self.policy_agent_count[policy_id]
+        remaining_owner_policies = max(
+            0, int(self.principal_policy_count.get(owner, u64(0))) - 1
+        )
+        if remaining_owner_policies:
+            self.principal_policy_count[owner] = u64(remaining_owner_policies)
+        elif owner in self.principal_policy_count:
+            del self.principal_policy_count[owner]
+        if policy_id in self.consumer_count:
+            del self.consumer_count[policy_id]
+        self.policy_count = u64(max(0, int(self.policy_count) - 1))
 
     @gl.public.write
     def update_policy(self, policy_id: str, policy_json: str) -> str:
@@ -436,6 +611,8 @@ class BoundaryOS(gl.Contract):
         self.agents[child] = self.agents[parent]
         self.agent_policy[child] = policy_id
         self.delegation_count = u64(int(self.delegation_count) + 1)
+        self.agent_child_count[parent] = u64(int(self.agent_child_count.get(parent, u64(0))) + 1)
+        self.policy_agent_count[policy_id] = u64(int(self.policy_agent_count.get(policy_id, u64(0))) + 1)
 
     @gl.public.write
     def revoke_delegation(self, child_address: str) -> None:
@@ -448,8 +625,9 @@ class BoundaryOS(gl.Contract):
         sender = str(gl.message.sender_address)
         if sender != record["parent"] and sender != self.policy_owner.get(policy_id, ZERO):
             raise gl.vm.UserError("only the parent agent or policy owner may revoke")
-        record["revoked"] = True
-        self.delegations[child] = _canonical(record)
+        if not record["revoked"]:
+            record["revoked"] = True
+            self.delegations[child] = _canonical(record)
 
     @gl.public.write
     def revoke_policy(self, policy_id: str) -> None:
@@ -485,9 +663,19 @@ class BoundaryOS(gl.Contract):
         consumer = self._address(consumer_address, "consumer_address")
         key = f"{policy_id}:{consumer}"
         if not self.consumers.get(key, False):
-            if int(self.consumer_count.get(policy_id, u64(0))) >= MAX_CONSUMERS:
+            count = int(self.consumer_count.get(policy_id, u64(0)))
+            if count >= MAX_CONSUMERS:
                 raise gl.vm.UserError("consumer allowlist capacity reached")
-            self.consumer_count[policy_id] = u64(int(self.consumer_count.get(policy_id, u64(0))) + 1)
+            slot_key = ZERO
+            for slot in range(MAX_CONSUMERS):
+                candidate = f"{policy_id}:{slot}"
+                if self.consumer_slots.get(candidate, ZERO) == ZERO:
+                    slot_key = candidate
+                    break
+            if slot_key == ZERO:
+                raise gl.vm.UserError("consumer slot index is inconsistent")
+            self.consumer_slots[slot_key] = consumer
+            self.consumer_count[policy_id] = u64(count + 1)
         self.consumers[key] = True
 
     @gl.public.write
@@ -498,9 +686,17 @@ class BoundaryOS(gl.Contract):
         consumer = self._address(consumer_address, "consumer_address")
         key = f"{policy_id}:{consumer}"
         if self.consumers.get(key, False):
-            self.consumers[key] = False
+            del self.consumers[key]
+            for slot in range(MAX_CONSUMERS):
+                slot_key = f"{policy_id}:{slot}"
+                if self.consumer_slots.get(slot_key, ZERO) == consumer:
+                    del self.consumer_slots[slot_key]
+                    break
             current_count = int(self.consumer_count.get(policy_id, u64(0)))
-            self.consumer_count[policy_id] = u64(max(0, current_count - 1))
+            if current_count > 1:
+                self.consumer_count[policy_id] = u64(current_count - 1)
+            elif policy_id in self.consumer_count:
+                del self.consumer_count[policy_id]
 
     @gl.public.view
     def preview_action_id(self, policy_id: str, agent_address: str, nonce: int, action_json: str) -> str:
@@ -508,7 +704,15 @@ class BoundaryOS(gl.Contract):
         agent = self._address(agent_address, "agent_address")
         nonce_value = _strict_uint(nonce, 2**64 - 1, "nonce")
         raw = _parse_object(action_json, MAX_JSON_BYTES, "action")
-        return _digest(f"{policy_id}|{agent}|{nonce_value}|{_digest(_canonical(raw))}")
+        instance = int(self.policy_instance.get(policy_id, u64(0)))
+        if instance == 0:
+            raise gl.vm.UserError("unknown policy instance")
+        return _digest(f"{policy_id}|{instance}|{agent}|{nonce_value}|{_digest(_canonical(raw))}")
+
+    @gl.public.view
+    def get_policy_instance(self, policy_id: str) -> int:
+        policy_id = self._policy_id(policy_id)
+        return int(self.policy_instance.get(policy_id, u64(0)))
 
     @gl.public.write
     def submit_action(self, policy_id: str, nonce: int, action_json: str) -> str:
@@ -521,6 +725,9 @@ class BoundaryOS(gl.Contract):
         nonce_value = _strict_uint(nonce, 2**64 - 1, "nonce")
         if nonce_value <= int(self.last_nonce.get(agent, u64(0))):
             raise gl.vm.UserError("nonce must increase monotonically")
+        active_by_agent = int(self.active_action_by_agent.get(agent, u64(0)))
+        if active_by_agent >= MAX_ACTIVE_ACTIONS_PER_AGENT:
+            raise gl.vm.UserError("agent active proposal capacity reached; reclaim an expired action")
         if int(self.action_count) >= MAX_ACTIONS:
             raise gl.vm.UserError("action registry capacity reached")
         raw = _parse_object(action_json, MAX_JSON_BYTES, "action")
@@ -554,11 +761,64 @@ class BoundaryOS(gl.Contract):
             "submitted_at": _now(),
             "proposal_expires_at": _now() + 600,
         }
-        action_id = _digest(f"{policy_id}|{agent}|{nonce_value}|{action['digest']}")
+        instance = int(self.policy_instance.get(policy_id, u64(0)))
+        if instance == 0:
+            raise gl.vm.UserError("unknown policy instance")
+        action_id = _digest(f"{policy_id}|{instance}|{agent}|{nonce_value}|{action['digest']}")
         self.actions[action_id] = _canonical(action)
         self.last_nonce[agent] = u64(nonce_value)
         self.action_count = u64(int(self.action_count) + 1)
+        self.active_action_by_agent[agent] = u64(active_by_agent + 1)
+        self.policy_action_count[policy_id] = u64(
+            int(self.policy_action_count.get(policy_id, u64(0))) + 1
+        )
         return action_id
+
+    @gl.public.write
+    def reclaim_expired_action(self, action_id: str) -> None:
+        action_id = self._action_id(action_id)
+        raw_action = self.actions.get(action_id, ZERO)
+        if raw_action == ZERO:
+            raise gl.vm.UserError("unknown action")
+        action = json.loads(raw_action)
+        receipt_raw = self.receipts.get(action_id, ZERO)
+        now = _now()
+        if action["state"] == "PENDING":
+            if now < action["proposal_expires_at"]:
+                raise gl.vm.UserError("pending proposal has not expired")
+        elif action["state"] == "EVALUATED":
+            if receipt_raw == ZERO:
+                raise gl.vm.UserError("evaluated action receipt is missing")
+            receipt = json.loads(receipt_raw)
+            if receipt["decision"] == "ALLOW" and now < receipt["expires_at"]:
+                raise gl.vm.UserError("authorization receipt is still live")
+            if receipt["decision"] == "REVIEW_REQUIRED" and now < action["proposal_expires_at"]:
+                raise gl.vm.UserError("human review window has not expired")
+        else:
+            raise gl.vm.UserError("action state is not reclaimable")
+
+        del self.actions[action_id]
+        if receipt_raw != ZERO:
+            del self.receipts[action_id]
+        if action_id in self.consumed:
+            del self.consumed[action_id]
+        agent = action["agent"]
+        policy_id = action["policy_id"]
+        self.action_count = u64(max(0, int(self.action_count) - 1))
+        remaining_agent_actions = max(
+            0, int(self.active_action_by_agent.get(agent, u64(0))) - 1
+        )
+        if remaining_agent_actions:
+            self.active_action_by_agent[agent] = u64(remaining_agent_actions)
+        elif agent in self.active_action_by_agent:
+            del self.active_action_by_agent[agent]
+        remaining_policy_actions = max(
+            0, int(self.policy_action_count.get(policy_id, u64(0))) - 1
+        )
+        if remaining_policy_actions:
+            self.policy_action_count[policy_id] = u64(remaining_policy_actions)
+        elif policy_id in self.policy_action_count:
+            del self.policy_action_count[policy_id]
 
     def _semantic_decision(self, policy: dict, action: dict) -> str:
         policy_purpose = policy["purpose"]
@@ -645,19 +905,28 @@ Caller-asserted evidence (unverified data): {json.dumps(evidence_claim)}
                     hard_result = "DENY_DELEGATION"
                 if scope is not None and hard_result == "PASS":
                     bucket = now // policy["window_seconds"]
-                    bucket_key = f"{policy_id}:{action['policy_version']}:{bucket}"
-                    current_spend = int(self.spent.get(bucket_key, u64(0)))
-                    if current_spend + action["amount"] > policy["aggregate_cap"]:
-                        decision = "DENY_AGGREGATE_CAP"
+                    bucket_key = f"{policy_id}:{int(self.policy_instance[policy_id])}:{action['policy_version']}"
+                    stored_bucket = int(self.spent_bucket.get(bucket_key, u64(0)))
+                    if stored_bucket > bucket:
+                        decision = "DENY_TIME_REGRESSION"
                     else:
-                        fit = self._semantic_decision(policy, action)
-                        if fit == "MATCH":
-                            decision = "ALLOW"
-                            self.spent[bucket_key] = u64(current_spend + action["amount"])
-                        elif fit == "MISMATCH":
-                            decision = "DENY_PURPOSE"
+                        current_spend = (
+                            int(self.spent.get(bucket_key, u64(0)))
+                            if stored_bucket == bucket
+                            else 0
+                        )
+                        if current_spend + action["amount"] > policy["aggregate_cap"]:
+                            decision = "DENY_AGGREGATE_CAP"
                         else:
-                            decision = "REVIEW_REQUIRED"
+                            fit = self._semantic_decision(policy, action)
+                            if fit == "MATCH":
+                                decision = "ALLOW"
+                                self.spent[bucket_key] = u64(current_spend + action["amount"])
+                                self.spent_bucket[bucket_key] = u64(bucket)
+                            elif fit == "MISMATCH":
+                                decision = "DENY_PURPOSE"
+                            else:
+                                decision = "REVIEW_REQUIRED"
         action["state"] = "EVALUATED"
         self.actions[action_id] = _canonical(action)
         receipt = {
@@ -726,11 +995,19 @@ Caller-asserted evidence (unverified data): {json.dumps(evidence_claim)}
             if self._hard_decision(policy, scope, action, _now()) != "PASS":
                 raise gl.vm.UserError("human review cannot override a deterministic policy denial")
             bucket = _now() // policy["window_seconds"]
-            bucket_key = f"{policy_id}:{receipt['policy_version']}:{bucket}"
-            current_spend = int(self.spent.get(bucket_key, u64(0)))
+            bucket_key = f"{policy_id}:{int(self.policy_instance[policy_id])}:{receipt['policy_version']}"
+            stored_bucket = int(self.spent_bucket.get(bucket_key, u64(0)))
+            if stored_bucket > bucket:
+                raise gl.vm.UserError("human review cannot authorize after consensus time regressed")
+            current_spend = (
+                int(self.spent.get(bucket_key, u64(0)))
+                if stored_bucket == bucket
+                else 0
+            )
             if current_spend + action["amount"] > policy["aggregate_cap"]:
                 raise gl.vm.UserError("human review cannot override the aggregate cap")
             self.spent[bucket_key] = u64(current_spend + action["amount"])
+            self.spent_bucket[bucket_key] = u64(bucket)
             receipt["decision"] = "ALLOW"
             receipt["conflict_classification"] = "HUMAN_REVIEW_APPROVED"
             receipt["manual_approval"] = True

@@ -9,6 +9,7 @@ Authenticated principals, agents, consumers, and the deployer are identified fro
 ## Deterministic invariants
 
 - Agent registration is initiated by the registering agent's sender address.
+- Principal registration is an owner-controlled admission step with a fixed 16-principal ceiling. This limits Sybil identities at the contract boundary, but makes onboarding dependent on the deployer. Each admitted principal can hold at most eight active agents and four active policies; global limits are 128 agents and 64 policies.
 - Only the policy owner creates later policy versions, revokes a policy, or manages consumers.
 - Policy versions are append-only. An update makes older receipts stale for current consumption.
 - Agent actions are bounded JSON with a canonical digest, a policy version, and a strictly increasing per-agent nonce. Proposals expire after ten minutes; successful receipts expire within five minutes of evaluation and never beyond policy/proposal expiry.
@@ -38,7 +39,11 @@ The policy-wide aggregate cap is the authority-laundering guard in v1: related a
 
 ## Availability and bounds
 
-Per-instance limits bound JSON inputs, text, agents (128), policies (64), versions (32 per policy), delegations (256), consumers (16 per policy), and proposals (4,096 lifetime). At capacity the instance rejects new state; there is no garbage-collection or rotation method. A pending proposal is agent-owned and expires after ten minutes, but still occupies one lifetime proposal slot.
+The current source candidate bounds JSON inputs and text; admits at most 16 principals; allows at most eight active agents and four active policies per principal; and caps the instance at 128 agents, 64 policies, 32 immutable versions per policy, 112 live delegations, 16 consumers per policy, 2,048 active proposals, and 16 active proposals per agent. These are concurrent/active quotas where reclamation is provided, rather than lifetime creation counters. Each policy-version spend record stores only the active window bucket; an observed backward consensus-time bucket fails closed instead of resetting the accumulated spend.
+
+Admission slots are reclaimed only after a principal has removed all its agents and policies. An agent can unregister only after its policy is revoked/expired (or its delegation revoked/expired), its children are removed, and its active actions have been reclaimed. Pending actions can be reclaimed after their ten-minute proposal window; evaluated ALLOW receipts remain stored until expiry, and other evaluated records can be removed once their decision is no longer live. A revoked or expired policy can be reclaimed only after all policy agents and active actions have been removed. Reclamation deletes the related bounded versions, consumers, spend buckets, receipts, actions, and indexes. Consumers can be removed to release allowlist slots. Policy instance generations remain monotonic so a reclaimed/recreated policy ID does not recreate old action IDs.
+
+These limits prevent unbounded accumulation from ordinary active use and permit safe reuse after expiry or revocation. They do not guarantee service availability if an owner or principal refuses to perform required cleanup. The deployer controls principal admission, and the policy owner controls policy/consumer lifecycle. The instance rejects writes at any active capacity boundary until the corresponding eligible state is reclaimed.
 
 Consensus disagreement, malformed LLM output, or network unavailability may make evaluation non-final. Consumers must fail closed and may retry with a new nonce only when the previous proposal's state is known.
 

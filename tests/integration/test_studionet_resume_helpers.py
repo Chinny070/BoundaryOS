@@ -128,6 +128,13 @@ def test_cli_sdk_adapter_preserves_typed_string_arguments():
     intent = json.loads(encode_cli_write_intent("0xcontract", "create_policy", arguments, 3))
     assert intent["args"] == arguments
     assert intent["rotations"] == 3
+    consumer_intent = json.loads(
+        encode_cli_write_intent(
+            "0xcontract", "request_protected_operation", ["action-id", "digest"], 3,
+            target_contract="0xconsumer",
+        )
+    )
+    assert consumer_intent["contract"] == "0xconsumer"
 
 
 def test_cli_entry_fails_closed_on_wrong_version_and_accepts_only_legacy_bundle(tmp_path, monkeypatch):
