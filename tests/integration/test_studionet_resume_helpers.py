@@ -227,7 +227,7 @@ def test_cross_checkpoint_nonce_guard_requires_authoritative_same_nonce_finality
         assert guard_cross_checkpoint_nonce_intents(
             current, signer, latest_nonce=43, target_contract="0xother-contract"
         ) == []
-        with pytest.raises(VerificationError, match="no different finalized transaction"):
+        with pytest.raises(VerificationError, match="no finalized transaction"):
             guard_cross_checkpoint_nonce_intents(
                 current, signer, latest_nonce=43, target_contract="0xold-contract"
             )
@@ -247,9 +247,10 @@ def test_cross_checkpoint_nonce_guard_requires_authoritative_same_nonce_finality
         }]
         saved = json.loads(ambiguous_path.read_text(encoding="utf-8"))
         old = saved["steps"]["old-write"]
-        assert old["phase"] == "nonce_consumed_by_different_finalized_tx"
+        assert old["phase"] == "nonce_reconciled_finalized_identity_unknown"
         assert old["broadcast_disposition"].startswith("unknown;")
-        assert old["superseded_by_tx_id"] == final_tx
+        assert old["nonce_transaction_tx_id"] == final_tx
+        assert old["retry_prohibited"] is True
     finally:
         current.close()
 

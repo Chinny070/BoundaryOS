@@ -1,0 +1,814 @@
+{
+  "deployment": {
+    "consensus": "MAJORITY_AGREE",
+    "contract_address": "0x99953d3c9e9c8FAff9289b9a80Ed038233Dc90eF",
+    "execution": "SUCCESS",
+    "explorer_address_http_status": 200,
+    "explorer_detail_note": "Explorer pages are reachable; static transaction page does not expose full receipt fields, which were independently obtained from CLI/RPC.",
+    "explorer_tx_http_status": 200,
+    "explorer_url": "https://explorer-studio.genlayer.com/address/0x99953d3c9e9c8FAff9289b9a80Ed038233Dc90eF",
+    "finalized_at": "2026-10-17T20:23:42.651704+00:00",
+    "sender": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+    "signer_nonce": 2694,
+    "status": "FINALIZED",
+    "transaction_id": "0xa181e3932651e05ae55cadc559df4dfa9d67e1ab5ff17034e155d69cb4e47193",
+    "transaction_url": "https://explorer-studio.genlayer.com/tx/0xa181e3932651e05ae55cadc559df4dfa9d67e1ab5ff17034e155d69cb4e47193"
+  },
+  "limitations": [
+    "Evidence provenance is CALLER_ASSERTED: the contract does not independently authenticate external evidence.",
+    "The local Windows Direct Mode runner currently fails before contract execution due to gltest temporary-file WinError 32; Linux CI is the authoritative Direct Mode run.",
+    "One consumed EVM nonce at 2728 has no recovered transaction identity. The subsequent captured nonce-2729 transaction finalized and was reconciled; no ambiguous write was retried.",
+    "The historical secondary-signer nonce-441 intent on a predecessor deployment remains unresolved and was not retried.",
+    "Consumer composability/error-recovery and live on-chain state-reclamation-at-cap behavior were not included in this fresh canonical release matrix."
+  ],
+  "network": {
+    "chain_id": 61999,
+    "name": "Studionet",
+    "rpc": "https://studio.genlayer.com/api"
+  },
+  "recorded_at_utc": "2026-10-17T22:04:36.419414+00:00",
+  "release_status": "live_acceptance_matrix_complete_source_verified",
+  "repository": "https://github.com/Chinny070/BoundaryOS",
+  "schema_version": 1,
+  "source_identity": {
+    "deployed_source_parity": "verified through official GenLayer CLI source retrieval; normalized source body equals checked-in file",
+    "deployment_source_sha256": "7fc5610a160d0094eac3158680fc93237e792a3cc6a9a30e60441e9fde7fb627",
+    "sha256": "7fc5610a160d0094eac3158680fc93237e792a3cc6a9a30e60441e9fde7fb627",
+    "source_commit": "26af28d67decc2c20985f1c715bf85e389a88a86",
+    "source_path": "contracts/boundary_os.py"
+  },
+  "verification": {
+    "cli_version": "0.39.1",
+    "finalized_state_readbacks": {
+      "child_registered_unfrozen": true,
+      "delegated_receipt_consumed": true,
+      "delegated_receipt_digest_valid_after_consumption": true,
+      "policy_action_types": [
+        "purchase"
+      ],
+      "policy_aggregate_cap": 1000,
+      "policy_hard_denies": [
+        "cash_withdrawal"
+      ],
+      "policy_max_amount": 500,
+      "policy_unit": "USD_CENTS",
+      "policy_version": 3,
+      "post_revoke_decision": "DENY_STALE_POLICY",
+      "principal_registered_unfrozen": true,
+      "semantic_match_digest_valid_after_consumption": true,
+      "semantic_match_receipt_consumed": true,
+      "semantic_match_replay_allowed": false,
+      "stale_policy_receipt_consumable": false
+    },
+    "nonce_anomalies": [
+      {
+        "disposition": "captured transaction hash finalized successfully and action state read back; reserved/observed mismatch was not retried",
+        "observed_nonce": 2729,
+        "reserved_nonce": 2728,
+        "step": "agent_freeze.evaluate.nonce-8",
+        "tx_id": "0xbf607271220ae71fbedda679290a75b3286e330f3b3df28a4c4fec53668f4aa3"
+      },
+      {
+        "disposition": "old secondary-signer consumer intent remains broadcast-unknown with no transaction hash; not retried. It belongs to a predecessor deployment and does not describe this release's consumed child receipt.",
+        "historical_signer_nonce": 441
+      }
+    ],
+    "scenario_observations": {
+      "delegation_boundary": {
+        "child_address": "0xaabdb32c7e07803fe9d5d4d70c06bbdeafe3b402",
+        "execution_rejected": true,
+        "observed_at": "2026-10-17T21:01:44.666536+00:00",
+        "parent_limit": 500,
+        "requested_amount": 501
+      },
+      "delegation_happy_path": {
+        "action_id": "db3d49805dbc76963d4ba783828a93d1bfe21db1d7d93f97a103a12a73f7199f",
+        "child_address": "0xaabdb32c7e07803fe9d5d4d70c06bbdeafe3b402",
+        "child_type": "eoa",
+        "decision": "ALLOW",
+        "observed_at": "2026-10-17T21:43:47.419061+00:00",
+        "receipt_consumed": true,
+        "receipt_digest_valid_after_consumption": true,
+        "semantic_fit": "MATCH"
+      },
+      "live_suite_complete": {
+        "aggregate_quota_source_action_id": "83106796f512c4dbf782aecabb2360d3195ca1522fb3ded100edc3dc765ea2c8",
+        "completed_at": "2026-10-17T21:53:08.333801+00:00",
+        "match_action_id": "cddd90f2b06184eec8dce53757babd260d85e0c718bcf5f80cbc7e52971f5a82",
+        "revoked_action_id": "8103bcf08e2cf5e666a2ce7bf74fd5817823b51fd536a48031fe222f9577ce8c",
+        "status": "completed"
+      },
+      "revocation_readback": {
+        "action_id": "8103bcf08e2cf5e666a2ce7bf74fd5817823b51fd536a48031fe222f9577ce8c",
+        "decision": "DENY_STALE_POLICY",
+        "observed_at": "2026-10-17T21:53:08.322803+00:00",
+        "receipt_digest_valid": true
+      },
+      "stale_receipt_invalidated": {
+        "action_id": "1da0a382e309f08a323e0ff8c5a91898c21beaf734284aceb2c70ed97be814b5",
+        "can_consume_after_update": false,
+        "observed_at": "2026-10-17T21:50:20.491468+00:00",
+        "policy_version": 3
+      }
+    },
+    "scenario_results": {
+      "agent_freeze": {
+        "action_id": "ac64f8d191c036c8eb26a66654fc468eeb0c961891ed97fc775c2a8bac26a13f",
+        "action_json_sha256": "ee6b48b99695d81ead718d4776977c4490d24bf1790ecfdb0ac96748614d4d93",
+        "created_at": "2026-10-17T21:28:37.205268+00:00",
+        "expected_decision": "DENY_FROZEN",
+        "expected_semantic_fit": "NOT_EVALUATED",
+        "nonce": 8,
+        "result": {
+          "action_id": "ac64f8d191c036c8eb26a66654fc468eeb0c961891ed97fc775c2a8bac26a13f",
+          "action_state": "EVALUATED",
+          "decision": "DENY_FROZEN",
+          "evidence_provenance": "CALLER_ASSERTED",
+          "nonce": 8,
+          "observed_at": "2026-10-17T21:44:37.618850+00:00",
+          "receipt_digest": "08797a73237897decca1b10419bca41df7aa097e866b439b02ccace0de4a76a3",
+          "receipt_digest_valid": true,
+          "semantic_fit": "NOT_EVALUATED"
+        }
+      },
+      "aggregate_quota_denial": {
+        "action_id": "3dcbe54c134765a8ef6310069d24073e4652e94301015f2cbc38e954a881aef1",
+        "action_json_sha256": "effa9cf3fff5cdeaff31fb57cb0d91b937c54f3babe61234f33b99cf667ddfa6",
+        "created_at": "2026-10-17T21:26:39.765553+00:00",
+        "expected_decision": "DENY_AGGREGATE_CAP",
+        "expected_semantic_fit": "NOT_EVALUATED",
+        "nonce": 7,
+        "result": {
+          "action_id": "3dcbe54c134765a8ef6310069d24073e4652e94301015f2cbc38e954a881aef1",
+          "action_state": "EVALUATED",
+          "decision": "DENY_AGGREGATE_CAP",
+          "evidence_provenance": "CALLER_ASSERTED",
+          "nonce": 7,
+          "observed_at": "2026-10-17T21:44:26.395899+00:00",
+          "receipt_digest": "5501551226413bfea4355269d6bc5b0c9510a349d45f450d011501359bb5eee5",
+          "receipt_digest_valid": true,
+          "semantic_fit": "NOT_EVALUATED"
+        }
+      },
+      "delegation_child_lifecycle": {
+        "action_id": "db3d49805dbc76963d4ba783828a93d1bfe21db1d7d93f97a103a12a73f7199f",
+        "action_json_sha256": "c58ca8d56f15d1ec050b125e72ec2481c7fb6a06d9d8a801d242c32e9e155b45",
+        "created_at": "2026-10-17T21:03:28.085446+00:00",
+        "nonce": 1
+      },
+      "deterministic_hard_deny": {
+        "action_id": "f38e016a1913d6889933cd36a5a05c1edd0b61a6bdb9e1cc2ec47516c952f363",
+        "action_json_sha256": "e2e90402e7d01e5738e1de4f89c32fcf7faac089d52ce9d584823595988dee7d",
+        "created_at": "2026-10-17T21:44:07.640528+01:00",
+        "expected_decision": "DENY_HARD_RULE",
+        "expected_semantic_fit": "NOT_EVALUATED",
+        "nonce": 3,
+        "result": {
+          "action_id": "f38e016a1913d6889933cd36a5a05c1edd0b61a6bdb9e1cc2ec47516c952f363",
+          "action_state": "EVALUATED",
+          "decision": "DENY_HARD_RULE",
+          "evidence_provenance": "CALLER_ASSERTED",
+          "nonce": 3,
+          "observed_at": "2026-10-17T21:43:17.409732+00:00",
+          "receipt_digest": "0df9ba4c9693abf1601ce1013904787660426ccb019cdf8370050179961d23fa",
+          "receipt_digest_valid": true,
+          "semantic_fit": "NOT_EVALUATED"
+        }
+      },
+      "post_revoke_action": {
+        "action_id": "8103bcf08e2cf5e666a2ce7bf74fd5817823b51fd536a48031fe222f9577ce8c",
+        "action_json_sha256": "a731086b586d888bde7b612ce508b4898ddb7fbcaf5f29acd50e5c1c68dafb4a",
+        "created_at": "2026-10-17T21:50:25.625547+00:00",
+        "nonce": 10
+      },
+      "quota_match_2": {
+        "action_id": "408d26f02ded1ae06d39df69a206863240cad7ae98731be0e0171ec16676de37",
+        "action_json_sha256": "801cc655c2749c9b6764bffa84da3d1737a2664a3d04e1b65af00d1b30fc992c",
+        "created_at": "2026-10-17T21:06:28.180087+00:00",
+        "expected_decision": "ALLOW",
+        "expected_semantic_fit": "MATCH",
+        "nonce": 4,
+        "result": {
+          "action_id": "408d26f02ded1ae06d39df69a206863240cad7ae98731be0e0171ec16676de37",
+          "action_state": "EVALUATED",
+          "decision": "ALLOW",
+          "evidence_provenance": "CALLER_ASSERTED",
+          "nonce": 4,
+          "observed_at": "2026-10-17T21:43:57.020487+00:00",
+          "receipt_digest": "6061bc78d0c379ce010805e95f23e71cbf5b660fe30d622ceb4f35a78a4c61e3",
+          "receipt_digest_valid": true,
+          "semantic_fit": "MATCH"
+        }
+      },
+      "quota_match_3": {
+        "action_id": "24c4b22a634d69b982e5bb463cce7c82590ca7d8d49952ae3045bde216e4094b",
+        "action_json_sha256": "1febe7c84391f1e279ae207f97abc5db49a495add85317271ad35f70697a4dfc",
+        "created_at": "2026-10-17T21:08:31.251369+00:00",
+        "expected_decision": "ALLOW",
+        "expected_semantic_fit": "MATCH",
+        "nonce": 5,
+        "result": {
+          "action_id": "24c4b22a634d69b982e5bb463cce7c82590ca7d8d49952ae3045bde216e4094b",
+          "action_state": "EVALUATED",
+          "decision": "ALLOW",
+          "evidence_provenance": "CALLER_ASSERTED",
+          "nonce": 5,
+          "observed_at": "2026-10-17T21:44:06.043870+00:00",
+          "receipt_digest": "75a87429c8ed37c2d4037f1a36f858c55757cac0d083495ae0745116c308e5f5",
+          "receipt_digest_valid": true,
+          "semantic_fit": "MATCH"
+        }
+      },
+      "quota_match_4": {
+        "action_id": "83106796f512c4dbf782aecabb2360d3195ca1522fb3ded100edc3dc765ea2c8",
+        "action_json_sha256": "0813e30a6138ad469f8fb24b16d7c0f1a716c3ad428def3b74cc20d50b6a574a",
+        "created_at": "2026-10-17T21:24:22.641717+00:00",
+        "expected_decision": "ALLOW",
+        "expected_semantic_fit": "MATCH",
+        "nonce": 6,
+        "result": {
+          "action_id": "83106796f512c4dbf782aecabb2360d3195ca1522fb3ded100edc3dc765ea2c8",
+          "action_state": "EVALUATED",
+          "decision": "ALLOW",
+          "evidence_provenance": "CALLER_ASSERTED",
+          "nonce": 6,
+          "observed_at": "2026-10-17T21:44:16.088192+00:00",
+          "receipt_digest": "94694ba7acc8b61859c68dec0df072b3c300c8f32278b638bc3b97308b79aea3",
+          "receipt_digest_valid": true,
+          "semantic_fit": "MATCH"
+        }
+      },
+      "semantic_match": {
+        "action_id": "cddd90f2b06184eec8dce53757babd260d85e0c718bcf5f80cbc7e52971f5a82",
+        "action_json_sha256": "3f9a7cf043a89cc7953ab4472b4b83d52d3c5ab5913ae4dbf645372b84004ecc",
+        "created_at": "2026-10-17T21:37:01.334794+01:00",
+        "expected_decision": "ALLOW",
+        "expected_semantic_fit": "MATCH",
+        "nonce": 1,
+        "result": {
+          "action_id": "cddd90f2b06184eec8dce53757babd260d85e0c718bcf5f80cbc7e52971f5a82",
+          "action_state": "EVALUATED",
+          "consumed": true,
+          "consumed_by": "0xaffE15eEc45b68835cc9E5B4Ab85dD5deaE8e70b",
+          "decision": "ALLOW",
+          "evidence_provenance": "CALLER_ASSERTED",
+          "legacy_receipt_digest_valid_after_consumption": true,
+          "nonce": 1,
+          "observed_at": "2026-10-17T21:42:54.013104+00:00",
+          "receipt_digest": "bbed18215b647b864718de5b84937b0824a59419743400e63e26d9ba5b504dd7",
+          "receipt_digest_valid": true,
+          "semantic_fit": "MATCH"
+        }
+      },
+      "semantic_mismatch": {
+        "action_id": "38b4203cc68db52c0342dbce0a36548ff45dae1f04c6b898d0a58f4eb15949ff",
+        "action_json_sha256": "fe5feec270d91b9c6e872ab136a88e199512a551e412552313a4eda92664605c",
+        "created_at": "2026-10-17T21:40:57.96743+01:00",
+        "expected_decision": "DENY_PURPOSE",
+        "expected_semantic_fit": "MISMATCH",
+        "nonce": 2,
+        "result": {
+          "action_id": "38b4203cc68db52c0342dbce0a36548ff45dae1f04c6b898d0a58f4eb15949ff",
+          "action_state": "EVALUATED",
+          "decision": "DENY_PURPOSE",
+          "evidence_provenance": "CALLER_ASSERTED",
+          "nonce": 2,
+          "observed_at": "2026-10-17T21:43:10.058915+00:00",
+          "receipt_digest": "7275ad46e09ab4b01689eac7fa9e61bee8e6ba1349aa63250d3ab582a1da943b",
+          "receipt_digest_valid": true,
+          "semantic_fit": "MISMATCH"
+        }
+      },
+      "stale_receipt_source": {
+        "action_id": "1da0a382e309f08a323e0ff8c5a91898c21beaf734284aceb2c70ed97be814b5",
+        "action_json_sha256": "f1e17ad1453b0cbca67b824c9167035d17b230bcca83cf51425450e08f5aeb30",
+        "created_at": "2026-10-17T21:46:41.459805+00:00",
+        "expected_decision": "ALLOW",
+        "expected_semantic_fit": "MATCH",
+        "nonce": 9,
+        "result": {
+          "action_id": "1da0a382e309f08a323e0ff8c5a91898c21beaf734284aceb2c70ed97be814b5",
+          "action_state": "EVALUATED",
+          "decision": "ALLOW",
+          "evidence_provenance": "CALLER_ASSERTED",
+          "nonce": 9,
+          "observed_at": "2026-10-17T21:49:12.543884+00:00",
+          "receipt_digest": "a27ac29cb06c6e01d1198f23d45974cb994f348657b98158aecaa62cc16481af",
+          "receipt_digest_valid": true,
+          "semantic_fit": "MATCH"
+        }
+      }
+    },
+    "signer_address": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+    "signer_backend": "GenLayer CLI named wallet; no key export",
+    "signer_name": "my-studionet-wallet",
+    "suite_completed_at": "2026-10-17T21:53:08.333801+00:00",
+    "transactions": {
+      "agent_freeze.evaluate.nonce-8": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "evaluate_action",
+        "observed_at": "2026-10-17T21:41:16.477042+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2729,
+        "status": "FINALIZED",
+        "tx_id": "0xbf607271220ae71fbedda679290a75b3286e330f3b3df28a4c4fec53668f4aa3",
+        "vm_error_code": null
+      },
+      "agent_freeze.freeze.nonce-8": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "freeze_agent",
+        "observed_at": "2026-10-17T21:30:29.297914+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2726,
+        "status": "FINALIZED",
+        "tx_id": "0xb0c6f7e74e4224bc6e19b7707ca67378d128e4afa3baa059d8350792c5c8d67a",
+        "vm_error_code": null
+      },
+      "agent_freeze.submit.nonce-8": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "submit_action",
+        "observed_at": "2026-10-17T21:29:29.684565+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2725,
+        "status": "FINALIZED",
+        "tx_id": "0x6b21280b65c835a09cadc4128af4ae76096ca7431017943da72554d0bb22723d",
+        "vm_error_code": null
+      },
+      "agent_freeze.unfreeze.nonce-8": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "freeze_agent",
+        "observed_at": "2026-10-17T21:45:39.412543+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2733,
+        "status": "FINALIZED",
+        "tx_id": "0x844fa55890649428a9beb4fa9e993d8f5dab227d87c2a5e4942182eb39d9d300",
+        "vm_error_code": null
+      },
+      "aggregate_quota_denial.evaluate.nonce-7": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "evaluate_action",
+        "observed_at": "2026-10-17T21:28:29.931735+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2724,
+        "status": "FINALIZED",
+        "tx_id": "0xa4f0fa691fce18b38ed9f858dc2d9c4e799cdd825fbeef53a282fba16fab2e90",
+        "vm_error_code": null
+      },
+      "aggregate_quota_denial.submit.nonce-7": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "submit_action",
+        "observed_at": "2026-10-17T21:27:42.684050+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2723,
+        "status": "FINALIZED",
+        "tx_id": "0xcac95bb720e4ed21e09183f3a55dcbcddf409833bd0375b81ad3c8e49410677c",
+        "vm_error_code": null
+      },
+      "delegation.accept_bounded_child": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "delegate_authority",
+        "observed_at": "2026-10-17T21:02:36.324937+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2714,
+        "status": "FINALIZED",
+        "tx_id": "0x27b071ad12081be7cc2d0cf68d18326b34a8f7204ac71264a7d72018bc4cef1c",
+        "vm_error_code": null
+      },
+      "delegation.approve_child_registration": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "approve_agent_registration",
+        "observed_at": "2026-10-17T20:59:50.720785+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2712,
+        "status": "FINALIZED",
+        "tx_id": "0xdd61423249014ac30feb5d0658fe43d2f680a50cb3a37f6730f78903d65e21d3",
+        "vm_error_code": null
+      },
+      "delegation.approve_child_registration.unused_bradbury": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "approve_agent_registration",
+        "observed_at": "2026-10-17T21:46:59.374937+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2711,
+        "status": "FINALIZED",
+        "tx_id": "0xf5203edb03afbe9cfb722a45289a340f48cf115befebeddb240a52a4bd77fc42",
+        "vm_error_code": null
+      },
+      "delegation.authorize_child_consumer": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "authorize_consumer",
+        "observed_at": "2026-10-17T21:43:32.580321+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2715,
+        "status": "FINALIZED",
+        "tx_id": "0x454c43b8f6685e3daf72c32e2c8ab70fa85a35f323edcc9f4507fc0e03d4ca3c",
+        "vm_error_code": null
+      },
+      "delegation.child_consume": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "consume_authorization",
+        "observed_at": "2026-10-17T21:06:22.476254+00:00",
+        "signer": "0xaabdb32c7e07803fe9d5d4d70c06bbdeafe3b402",
+        "signer_nonce": 14,
+        "status": "FINALIZED",
+        "tx_id": "0x154874a3579c80a2be63cb3dee58f1683766cabf50c11fd1b5cdd44142172c5b",
+        "vm_error_code": null
+      },
+      "delegation.child_evaluate": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "evaluate_action",
+        "observed_at": "2026-10-17T21:05:28.813220+00:00",
+        "signer": "0xaabdb32c7e07803fe9d5d4d70c06bbdeafe3b402",
+        "signer_nonce": 13,
+        "status": "FINALIZED",
+        "tx_id": "0xf1ebd27127329b1a3448490de3aa7f7c307ed57fbd629c6302d67055f424c11a",
+        "vm_error_code": null
+      },
+      "delegation.child_submit": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "submit_action",
+        "observed_at": "2026-10-17T21:04:20.112292+00:00",
+        "signer": "0xaabdb32c7e07803fe9d5d4d70c06bbdeafe3b402",
+        "signer_nonce": 12,
+        "status": "FINALIZED",
+        "tx_id": "0xdb4b483f2d4386c863a5514f539f38ae340d8822bb02eb5c51f423086728db84",
+        "vm_error_code": null
+      },
+      "delegation.register_child": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "register_agent",
+        "observed_at": "2026-10-17T21:00:46.547264+00:00",
+        "signer": "0xaabdb32c7e07803fe9d5d4d70c06bbdeafe3b402",
+        "signer_nonce": 11,
+        "status": "FINALIZED",
+        "tx_id": "0xd4e247cf151009c79ada122526feec9c475a6b3c398de6fc005b2be55e1baec5",
+        "vm_error_code": null
+      },
+      "delegation.reject_amount_widening": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "ERROR",
+        "expected_execution_error": true,
+        "method": "delegate_authority",
+        "observed_at": "2026-10-17T21:01:41.854766+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2713,
+        "status": "FINALIZED",
+        "tx_id": "0x25c12325bbf50d36aef785052bb06553a4559e8d9c4d49cc6e15bcbad0cc855e",
+        "vm_error_code": null
+      },
+      "deterministic_hard_deny.evaluate.nonce-3": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "evaluate_action",
+        "observed_at": "2026-10-17T21:45:53.569517+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2710,
+        "status": "FINALIZED",
+        "tx_id": "0x9d66dcfb90c4c35aec1ddd5b8b7fe79765428f8343e1e261868de6a3b17ea4f1",
+        "vm_error_code": null
+      },
+      "deterministic_hard_deny.submit.nonce-3": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "submit_action",
+        "observed_at": "2026-10-17T21:45:08.78682+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2709,
+        "status": "FINALIZED",
+        "tx_id": "0xf73aadb6c89ef506c7ec22f76c8aaf59b3ebabf86b566c7651435363f88681a2",
+        "vm_error_code": null
+      },
+      "policy.revoke": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "revoke_policy",
+        "observed_at": "2026-10-17T21:52:13.820275+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2739,
+        "status": "FINALIZED",
+        "tx_id": "0xd2b3647cdb46641d4ad916560fc9f2b074dfc970bd3d304fd60fa0f124b92625",
+        "vm_error_code": null
+      },
+      "policy.update_to_version_2": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "update_policy",
+        "observed_at": "2026-10-17T21:46:35.751497+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2734,
+        "status": "FINALIZED",
+        "tx_id": "0xd860897b78e98458cd8f7c0633023f3259829242f90d110ae776b122d051d227",
+        "vm_error_code": null
+      },
+      "policy.update_to_version_3": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "update_policy",
+        "observed_at": "2026-10-17T21:50:17.658290+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2737,
+        "status": "FINALIZED",
+        "tx_id": "0x97f4f9cea31b521711d7deff5c7992d1883305d9367d23d7276539e84b30e70b",
+        "vm_error_code": null
+      },
+      "post_revoke_action.evaluate": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "evaluate_action",
+        "observed_at": "2026-10-17T21:53:05.037029+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2740,
+        "status": "FINALIZED",
+        "tx_id": "0x56aec890cd676a05dcd1468a03ac1bbd9e68fde0dfe3daf7faf986f482ed5367",
+        "vm_error_code": null
+      },
+      "post_revoke_action.submit": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "submit_action",
+        "observed_at": "2026-10-17T21:51:22.559253+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2738,
+        "status": "FINALIZED",
+        "tx_id": "0xc044305a07b661d1af16480847eb5907ae48665fdd53b27ee62847273ea542f8",
+        "vm_error_code": null
+      },
+      "quota_match_2.evaluate.nonce-4": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "evaluate_action",
+        "observed_at": "2026-10-17T21:08:25.559424+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2717,
+        "status": "FINALIZED",
+        "tx_id": "0x3336f3a1973d72a5a9ccd27a9d6b4f2d9a49e1f0a05ae8bae4456d0b0daf374c",
+        "vm_error_code": null
+      },
+      "quota_match_2.submit.nonce-4": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "submit_action",
+        "observed_at": "2026-10-17T21:07:21.916710+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2716,
+        "status": "FINALIZED",
+        "tx_id": "0x6f4da7d7b66a4d3bad396f59a01c8fea78c3be085160960a0fa6b5ff9c038200",
+        "vm_error_code": null
+      },
+      "quota_match_3.evaluate.nonce-5": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "evaluate_action",
+        "observed_at": "2026-10-17T21:10:46.389507+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2719,
+        "status": "FINALIZED",
+        "tx_id": "0x4dc8db8e5f3efbe43ab1008510cf3f159a9f68221c132d0e18c60f387127e04c",
+        "vm_error_code": null
+      },
+      "quota_match_3.submit.nonce-5": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "submit_action",
+        "observed_at": "2026-10-17T21:09:23.589401+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2718,
+        "status": "FINALIZED",
+        "tx_id": "0x3b8228f02372b1a2ae9fbaa46ec5d6c33e1eb427a716407520db798e78a6463e",
+        "vm_error_code": null
+      },
+      "quota_match_4.evaluate.nonce-6": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "evaluate_action",
+        "observed_at": "2026-10-17T21:26:32.144263+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2721,
+        "status": "FINALIZED",
+        "tx_id": "0xd93de2a8770e461a8135a696cbec611b16bd9f3a7a639f91a52699c9419281a2",
+        "vm_error_code": null
+      },
+      "quota_match_4.submit.nonce-6": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "submit_action",
+        "observed_at": "2026-10-17T21:25:22.121614+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2720,
+        "status": "FINALIZED",
+        "tx_id": "0x3116b9ee2cc6f9f742bdaaf5421ff1f3f0fb013234d2a1aa6ac9037a7f4d62fc",
+        "vm_error_code": null
+      },
+      "release.cleanup_unused_bradbury_approval": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "cancel_agent_registration",
+        "observed_at": "2026-10-17T21:58:02.983325+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2742,
+        "status": "FINALIZED",
+        "tx_id": "0xf2636db36a11be29f0fa6d8862922700f9f8f80d10f10e9eac52b9831284b7d4",
+        "vm_error_code": null
+      },
+      "semantic_match.consume": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "consume_authorization",
+        "observed_at": "2026-10-17T21:39:48.185093+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2705,
+        "status": "FINALIZED",
+        "tx_id": "0xb0161d6ae660fff42b2d095516dd14fa71c5db0d3f44fcfd5550bdf42ab62616",
+        "vm_error_code": null
+      },
+      "semantic_match.evaluate": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "evaluate_action",
+        "observed_at": "2026-10-17T21:38:53.953657+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2704,
+        "status": "FINALIZED",
+        "tx_id": "0xad14510b263a27d156332a216f94757ed4b08aa0d6bae54d4c909badd6199399",
+        "vm_error_code": null
+      },
+      "semantic_match.replay": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "ERROR",
+        "expected_execution_error": true,
+        "method": "consume_authorization",
+        "observed_at": "2026-10-17T21:42:59.757888+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2706,
+        "status": "FINALIZED",
+        "tx_id": "0xa54d9b54feb66103dfd5236ee4e0bbb23608d1dd86849ca2c9385b191ebe94ba",
+        "vm_error_code": null
+      },
+      "semantic_match.submit": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "submit_action",
+        "observed_at": "2026-10-17T21:37:59.898715+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2703,
+        "status": "FINALIZED",
+        "tx_id": "0x6e30e076899d1f1c5b03699db2bac9d5c6c12da32a9f849ef52ca5ec6e774e8b",
+        "vm_error_code": null
+      },
+      "semantic_mismatch.evaluate.nonce-2": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "evaluate_action",
+        "observed_at": "2026-10-17T21:43:53.191326+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2708,
+        "status": "FINALIZED",
+        "tx_id": "0x2c83a9eb1f1da72949bd5773e021d96edfd77af0789ebf35168a14cb6b13bb1d",
+        "vm_error_code": null
+      },
+      "semantic_mismatch.submit.nonce-2": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "submit_action",
+        "observed_at": "2026-10-17T21:42:26.177862+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2707,
+        "status": "FINALIZED",
+        "tx_id": "0xe17928ecf793454255ace73a33cb5f709878d04cc9c1cfe2fbdbb057ff0e0b70",
+        "vm_error_code": null
+      },
+      "setup.admit_principal": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "admit_principal",
+        "observed_at": "2026-10-17T21:28:09.134574+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2697,
+        "status": "FINALIZED",
+        "tx_id": "0xc24c94161e2ad4cba5b04fbfab0cb8baab1077d6c29ace03ad59260647b25f63",
+        "vm_error_code": null
+      },
+      "setup.approve_root_agent": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "approve_agent_registration",
+        "observed_at": "2026-10-17T21:34:24.424841+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2698,
+        "status": "FINALIZED",
+        "tx_id": "0x4f51dae81d5d3975659f84a83ff6022af168d07cbbbccf20a4710a90bdada9ce",
+        "vm_error_code": null
+      },
+      "setup.authorize_consumer": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "authorize_consumer",
+        "observed_at": "2026-10-17T21:42:43.199888+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2702,
+        "status": "FINALIZED",
+        "tx_id": "0x68e14ec907ceb6bd8006fad1d15c7344df40a272058ee7cfec772b344a759fe5",
+        "vm_error_code": null
+      },
+      "setup.create_policy": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "create_policy",
+        "observed_at": "2026-10-17T21:36:04.3796+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2701,
+        "status": "FINALIZED",
+        "tx_id": "0x3152e7edcdb7abc5867b8fcc99b09c747cc01e3e21acbe2157e479871568e6da",
+        "vm_error_code": null
+      },
+      "setup.register_agent": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "register_agent",
+        "observed_at": "2026-10-17T21:35:10.470325+01:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2700,
+        "status": "FINALIZED",
+        "tx_id": "0x859054ff7b223bd00efadab81013b33401e00e3d6ed485602551e658ea4bdeb4",
+        "vm_error_code": null
+      },
+      "stale_receipt_source.evaluate.nonce-9": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "evaluate_action",
+        "observed_at": "2026-10-17T21:49:02.328869+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2736,
+        "status": "FINALIZED",
+        "tx_id": "0x0e8669b9e568941b28046cc4052dd1e2c2a1c20b271fbf8e9aac87c85dc1e719",
+        "vm_error_code": null
+      },
+      "stale_receipt_source.submit.nonce-9": {
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS",
+        "expected_execution_error": false,
+        "method": "submit_action",
+        "observed_at": "2026-10-17T21:47:52.207704+00:00",
+        "signer": "0xaffe15eec45b68835cc9e5b4ab85dd5deae8e70b",
+        "signer_nonce": 2735,
+        "status": "FINALIZED",
+        "tx_id": "0x2ce17db191605049985f203d7b6081857199e4508c3ac07af1590bb49d3469b3",
+        "vm_error_code": null
+      }
+    },
+    "typed_state_read_consistency": "LATEST_FINAL"
+  }
+}

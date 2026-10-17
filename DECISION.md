@@ -36,7 +36,7 @@ The portfolio has meaningful thematic overlap in AI-agent policy, contracts, and
 - Shared aggregate quota is keyed by policy version and time window. A successful ALLOW reserves the requested amount when authorization is granted; this is conservative authorization accounting, not proof of an external payment or action. Multiple child agents cannot divide authority to bypass the declared cap.
 - Policy diffs report deterministic expansion separately. A changed semantic purpose or a changed unit/window has unknown direction; the API returns `permissions_expanded: null` when no deterministic expansion is found but such a material change exists.
 - A human owner can resolve only `REVIEW_REQUIRED`. The owner cannot override a hard deny, quota, freeze, expiry, revocation, or stale policy.
-- State is capped: 128 agent registrations, 64 policies, 32 versions per policy, 256 delegations, 16 consumers per policy, and 4,096 proposals over the lifetime of one instance. These limits intentionally bound storage and also mean a saturated instance must be replaced by a new deployment.
+- State is capped: 128 agent registrations, 64 policies, 32 versions per policy, 256 delegations, 16 consumers per policy, and 4,096 proposals over one instance's lifetime. The contract exposes safe cleanup/reclamation for eligible unused, expired, revoked, and unreferenced records; live verification of filling every cap and reclaiming it is not part of this release's evidence. A deployment whose non-reclaimable lifetime proposal cap is exhausted must be replaced.
 - Counterfactual simulation and semantic coordination detection are out of scope. A hypothetical verdict must never be consumable.
 
 ## Readiness decision

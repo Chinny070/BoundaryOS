@@ -453,10 +453,10 @@ def guard_cross_checkpoint_nonce_intents(
 ) -> list[dict[str, Any]]:
     """Block writes when another checkpoint has an unresolved intent for this signer.
 
-    A same-nonce FINALIZED record in another checkpoint proves that a
-    hashless intent was not the transaction accepted by the chain. The prior
-    broadcast-versus-drop history remains unknown and is preserved in the
-    checkpoint; the occupied nonce itself is safe to move past.
+    A same-nonce FINALIZED record proves that the account nonce is occupied,
+    but a hashless intent cannot be identified as that exact transaction. Keep
+    this uncertainty in the checkpoint and prohibit resending the intent; a
+    future write may safely use a fresh nonce after finality is established.
     """
     root = Path(".boundaryos")
     current_path = checkpoint.path.resolve()
@@ -533,7 +533,7 @@ def guard_cross_checkpoint_nonce_intents(
             if matching is None or latest_nonce <= nonce:
                 raise UnresolvedBroadcast(
                     f"checkpoint {path.name} has unresolved step {step_name} at signer nonce {nonce}; "
-                    "no different finalized transaction proves that nonce was consumed; refusing a write"
+                    "no finalized transaction proves that nonce was consumed; refusing a write"
                 )
             tx_id, tx = matching
             prior_tx_id = item.get("tx_id") or item.get("outer_tx_hash")
@@ -553,10 +553,13 @@ def guard_cross_checkpoint_nonce_intents(
                 })
             else:
                 item.update({
-                    "phase": "nonce_consumed_by_different_finalized_tx",
-                    "broadcast_disposition": "unknown; original transaction was not finalized under its missing identity",
-                    "superseded_by_tx_id": tx_id,
-                    "superseded_by_status": "FINALIZED",
+                    "phase": "nonce_reconciled_finalized_identity_unknown",
+                    "broadcast_disposition": "unknown; a transaction finalized at this nonce, but the hashless intent cannot be matched to its payload",
+                    "nonce_transaction_tx_id": tx_id,
+                    "nonce_transaction_status": "FINALIZED",
+                    "nonce_transaction_consensus_outcome": tx.get("consensus_outcome"),
+                    "nonce_transaction_execution_result": tx.get("execution_result"),
+                    "retry_prohibited": True,
                     "reconciled_at": _now(),
                 })
             changed = True
@@ -2404,16 +2407,34 @@ def _verify_delegation_boundary(
     if child_contract_address:
         child_address = to_checksum_address(child_contract_address)
     else:
-        for candidate in accounts:
-            if candidate.address.lower() == parent.address.lower():
-                continue
-            state = _as_json(verifier.read("get_agent", [candidate.address]))
-            if isinstance(state, dict) and not state.get("registered"):
-                child = candidate
-                break
+        saved_child = (
+            verifier.checkpoint.data.get("observations", {})
+            .get("delegation_happy_path", {})
+            .get("child_address")
+        )
+        if saved_child:
+            child = next(
+                (
+                    candidate for candidate in accounts
+                    if candidate.address.lower() == str(saved_child).lower()
+                    and candidate.address.lower() != parent.address.lower()
+                ),
+                None,
+            )
+        if child is not None:
+            child_address = child.address
+        else:
+            for candidate in accounts:
+                if candidate.address.lower() == parent.address.lower():
+                    continue
+                state = _as_json(verifier.read("get_agent", [candidate.address]))
+                if isinstance(state, dict) and not state.get("registered"):
+                    child = candidate
+                    break
+            if child is not None:
+                child_address = child.address
         if child is None:
             raise VerificationError("no configured, unregistered secondary signer is available for delegation testing")
-        child_address = child.address
     child_state = _as_json(verifier.read("get_agent", [child_address]))
     if not child_state.get("registered"):
         verifier.write_once(
@@ -2608,39 +2629,40 @@ def _verify_delegation_boundary(
         or child_receipt.get("action_digest") != hashlib.sha256(_canonical(child_action)).hexdigest()
     ):
         raise VerificationError("delegated child did not receive a matching finalized ALLOW receipt")
-    if verifier.read("can_consume_authorization", [child_action_id, child_address]) is not True:
-        raise VerificationError("delegated child receipt was not consumable before the consume transaction")
-    if child is None:
-        consume_parent_tx = verifier.write_once(
-            "delegation.child_consume",
-            "request_protected_operation",
-            [child_action_id, child_receipt["action_digest"]],
-            signer=parent,
-            max_polls=max_polls,
-            contract_address=child_address,
-        )
-        consume_child_id = _triggered_child_id(
-            verifier, "delegation.child_consume", consume_parent_tx["tx_id"]
-        )
-        consume_child = verifier.poll_finalized(consume_child_id, max_polls=max_polls)
-        if consume_child.get("execution_result") != "SUCCESS":
-            raise VerificationError("delegated consumer receipt-consumption child did not succeed")
-        verifier.write_once(
-            "delegation.child_complete",
-            "complete_protected_operation",
-            [child_action_id],
-            signer=parent,
-            max_polls=max_polls,
-            contract_address=child_address,
-        )
-    else:
-        verifier.write_once(
-            "delegation.child_consume",
-            "consume_authorization",
-            [child_action_id, child_receipt["action_digest"]],
-            signer=child,
-            max_polls=max_polls,
-        )
+    if child_receipt.get("consumed") is not True:
+        if verifier.read("can_consume_authorization", [child_action_id, child_address]) is not True:
+            raise VerificationError("delegated child receipt was not consumable before the consume transaction")
+        if child is None:
+            consume_parent_tx = verifier.write_once(
+                "delegation.child_consume",
+                "request_protected_operation",
+                [child_action_id, child_receipt["action_digest"]],
+                signer=parent,
+                max_polls=max_polls,
+                contract_address=child_address,
+            )
+            consume_child_id = _triggered_child_id(
+                verifier, "delegation.child_consume", consume_parent_tx["tx_id"]
+            )
+            consume_child = verifier.poll_finalized(consume_child_id, max_polls=max_polls)
+            if consume_child.get("execution_result") != "SUCCESS":
+                raise VerificationError("delegated consumer receipt-consumption child did not succeed")
+            verifier.write_once(
+                "delegation.child_complete",
+                "complete_protected_operation",
+                [child_action_id],
+                signer=parent,
+                max_polls=max_polls,
+                contract_address=child_address,
+            )
+        else:
+            verifier.write_once(
+                "delegation.child_consume",
+                "consume_authorization",
+                [child_action_id, child_receipt["action_digest"]],
+                signer=child,
+                max_polls=max_polls,
+            )
     consumed_child_receipt = _as_json(verifier.read("get_receipt", [child_action_id]))
     if (
         not isinstance(consumed_child_receipt, dict)

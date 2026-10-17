@@ -57,6 +57,20 @@ def main() -> None:
     frozen_hash = hashlib.sha256(frozen_source).hexdigest()
     if frozen_hash != source_identity.get("committed_file_sha256"):
         raise SystemExit("historical canonical deployment hash no longer matches its frozen commit")
+
+    release_path = ROOT / "docs/evidence/studionet-accessible-signer-release.json"
+    if release_path.is_file():
+        release = json.loads(release_path.read_text(encoding="utf-8"))
+        release_source = release.get("source_identity", {})
+        current_hash = hashlib.sha256((ROOT / "contracts/boundary_os.py").read_bytes()).hexdigest()
+        if release_source.get("sha256") != current_hash:
+            raise SystemExit("current Studionet release evidence does not match the checked-out contract source")
+        deployment = release.get("deployment", {})
+        if deployment.get("status") != "FINALIZED" or deployment.get("execution") != "SUCCESS":
+            raise SystemExit("current Studionet release deployment is not recorded as finalized successfully")
+        transactions = release.get("verification", {}).get("transactions", {})
+        if not transactions or any(item.get("status") != "FINALIZED" for item in transactions.values()):
+            raise SystemExit("current Studionet release evidence has missing or non-finalized transaction records")
     print("release configuration and historical source identity are consistent")
 
 

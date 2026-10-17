@@ -4,21 +4,34 @@
 
 **BoundaryOS — Delegated Agent Action Authorization Primitive**
 
-## Portal description (under 1,000 characters)
+## Portal description
 
-BoundaryOS is a reusable GenLayer Intelligent Contract for versioned authority delegation to autonomous agents. Deterministic code authenticates policy owners and agents and enforces action scopes, explicit denies, integer amount and unit limits, shared aggregate quotas, expiry, nonces, delegation bounds, freeze, revocation, policy freshness, and one-time receipt consumption. Actions that pass those gates receive a semantic purpose judgment whose typed result must agree across validators. Ambiguity requires human review and protocol disagreement is not approval. Procurement executors, DAO automation, and delegated service-agent contracts can consume action-bound receipts. Evidence provenance is `CALLER_ASSERTED`; caller claims are not externally authenticated facts.
+BoundaryOS is a reusable GenLayer Intelligent Contract for versioned authority delegation to autonomous agents. Deterministic code authenticates principals and agents and enforces action scopes, explicit denies, integer amount and unit limits, shared aggregate quotas, expiry, nonces, delegation bounds, freezes, revocation, policy freshness, and one-time receipt consumption. Actions that pass those gates receive a semantic purpose judgment whose typed result must agree across validators. Ambiguity requires human review; consensus disagreement is not approval. Consumer contracts can check and consume action-bound receipts. Evidence provenance is `CALLER_ASSERTED`; caller claims are not externally authenticated facts.
 
-## Release evidence
+## Repository and deployed contract
 
-- Repository: <https://github.com/Chinny070/BoundaryOS>
-- Corrected-source Studionet instance: [`0xe6b915d1DAb0EC9035D07368938413798d77c959`](https://explorer-studio.genlayer.com/address/0xe6b915d1DAb0EC9035D07368938413798d77c959).
-- Deployment transaction: [`0xbb04d21b3d0784a2c61fcaedc0b83635571118ba1d18b5a59654d041df457eec`](https://explorer-studio.genlayer.com/tx/0xbb04d21b3d0784a2c61fcaedc0b83635571118ba1d18b5a59654d041df457eec), finalized `MAJORITY_AGREE`, VM `SUCCESS`, one round, five agree votes.
-- Deployed contract source is commit `03447b9ba09bced9ab151bc7212b423d7bcd8c82`, file SHA-256 `7fc5610a160d0094eac3158680fc93237e792a3cc6a9a30e60441e9fde7fb627`. GenLayer CLI source retrieval matched the committed source byte-for-byte after removing only the CLI wrapper and outer newlines.
-- Corrected-source live evidence covers principal-approved agent registration, semantic `ALLOW / MATCH`, receipt readback/consumption and replay rejection, semantic `DENY_PURPOSE / MISMATCH`, deterministic `DENY_HARD_RULE`, bounded delegation, rejection of amount widening, and delegated child action evaluation as `ALLOW / MATCH`.
-- The test consumer fixture is deployed at `0x1efcCe3dFA92abdcd5887ceF8956cd63F7d816f5`. The old delegated receipt and delegation have expired, and the child receipt was not consumed. Its `request_protected_operation` intent at signer nonce `441` has no transaction hash and remains unresolved; no retry was made. The clean available wallet is not admitted or registered on this instance, and the existing parent signer is inaccessible. A local consumer correction now validates the finalized consumed-receipt commitment and supports completion after expiry, but the deployed consumer retains its older source. The consumer lifecycle cannot be represented as live-verified. See [the exact transaction and scenario evidence](docs/evidence/principal-approval-release.json) and [deployment record](docs/DEPLOYMENT.md).
-- GitHub Actions [run 39061803621](https://github.com/Chinny070/BoundaryOS/actions/runs/39061803621) passed on code commit `a7bc927`: Linux 80 tests (50 Direct Mode, 20 harness helpers, 10 consumer proof) plus contract/consumer GenVM validation, schema, typecheck, and lint; Windows 30 helper/consumer tests and release configuration. Local pinned GenVM `v0.2.16` checks also passed. The local Windows Direct Mode runner remains blocked before contract execution by the installed `gltest` runner's `WinError 32`; the exact failure is recorded in [Deployment](docs/DEPLOYMENT.md).
-- Historical deployments and nonce uncertainties are documented separately. Their behavior does not count as verification for this corrected contract. Evidence source remains caller asserted.
+- GitHub: <https://github.com/Chinny070/BoundaryOS>
+- Studionet chain ID: `61999`
+- Contract: [`0x99953d3c9e9c8FAff9289b9a80Ed038233Dc90eF`](https://explorer-studio.genlayer.com/address/0x99953d3c9e9c8FAff9289b9a80Ed038233Dc90eF)
+- Deployment transaction: [`0xa181e3932651e05ae55cadc559df4dfa9d67e1ab5ff17034e155d69cb4e47193`](https://explorer-studio.genlayer.com/tx/0xa181e3932651e05ae55cadc559df4dfa9d67e1ab5ff17034e155d69cb4e47193)
+- Deployment finalized with `MAJORITY_AGREE`, VM `SUCCESS`, one round, three agree and two idle votes.
+- Frozen source commit: `26af28d67decc2c20985f1c715bf85e389a88a86`; `contracts/boundary_os.py` SHA-256: `7fc5610a160d0094eac3158680fc93237e792a3cc6a9a30e60441e9fde7fb627`.
+- Deployed-source parity was checked through the official GenLayer CLI source retrieval. The normalized retrieved source matches the frozen source file.
+
+## Acceptance evidence
+
+The fresh release deployment passed live Studionet verification for semantic `ALLOW / MATCH`, semantic `DENY_PURPOSE / MISMATCH`, deterministic hard denial, receipt creation/readback, successful one-time receipt consumption, replay rejection, bounded root-to-child delegation and child receipt consumption, rejection of delegation widening, aggregate quota enforcement, agent freeze, stale policy handling, and revocation. All listed transactions finalized and the resulting state was read at `LATEST_FINAL` through the official Python SDK. The secret-free transaction and scenario record is [studionet-accessible-signer-release.json](docs/evidence/studionet-accessible-signer-release.json).
+
+## Validation and caveats
+
+- Harness helper and consumer proof tests: 30 passed in the latest local Windows run.
+- Compileall and release configuration/source-identity checks passed.
+- Contract-pinned GenVM lint, SDK validation, schema, and typecheck passed in the latest verified run; the Linux CI workflow runs these gates on push.
+- Local Windows Direct Mode execution currently fails in the installed `gltest` loader before contract execution (`WinError 32`, temporary file still open). Do not treat that local runner error as a contract test failure or a pass; rely on the full Linux CI suite for Direct Mode.
+- The live suite did not exercise the separate consumer fixture's child-error recovery/repeated completion or fill and reclaim every storage cap on-chain. These are outside the verified release matrix and are explicitly disclosed in the deployment record.
+- Historical hashless transaction intents at predecessor signer nonces `441` and `2624` remain unresolved and were not resent. A separate release-suite nonce mismatch at `2728/2729` is also retained in the evidence; the captured nonce-2729 transaction finalized and its result was read back.
+- BoundaryOS does not establish the truth of caller-supplied evidence, complete off-chain actions, or prevent a consumer from ignoring its receipt. Integrators must enforce the contract result and wait for finality.
 
 ## Readiness verdict
 
-**Not submission-ready.** The corrected contract's deployment, finality, source parity, and the listed live behaviors are verified. The receipt-consumption step for the delegated child remains unknown because the nonce-441 broadcast lacks an identity. Live consumer error recovery/repeated completion, aggregate quota, freeze, revocation, and deployed-state reclamation tests also remain outstanding. Do not submit this release as fully verified until these acceptance gates are completed with finalized transactions and finalized-state readbacks.
+**Ready to submit as a standalone Intelligent Contract release, with the caveats above disclosed.** Deployment finality, source identity, live consensus behavior for the listed core authorization scenarios, local regression checks, and public submission documentation are recorded. This verdict does not claim independent external-evidence verification or live acceptance of the optional consumer-fixture and cap-saturation cases.
