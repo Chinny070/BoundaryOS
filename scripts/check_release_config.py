@@ -62,9 +62,16 @@ def main() -> None:
     if release_path.is_file():
         release = json.loads(release_path.read_text(encoding="utf-8"))
         release_source = release.get("source_identity", {})
-        current_hash = hashlib.sha256((ROOT / "contracts/boundary_os.py").read_bytes()).hexdigest()
-        if release_source.get("sha256") != current_hash:
-            raise SystemExit("current Studionet release evidence does not match the checked-out contract source")
+        release_commit = release_source.get("source_commit")
+        release_contract_path = release_source.get("source_path")
+        if not isinstance(release_commit, str) or not isinstance(release_contract_path, str):
+            raise SystemExit("current Studionet release evidence is missing its frozen source identity")
+        release_source_bytes = __import__("subprocess").check_output(
+            ["git", "show", f"{release_commit}:{release_contract_path}"], cwd=ROOT
+        )
+        release_hash = hashlib.sha256(release_source_bytes).hexdigest()
+        if release_source.get("sha256") != release_hash:
+            raise SystemExit("current Studionet release evidence does not match its frozen Git source")
         deployment = release.get("deployment", {})
         if deployment.get("status") != "FINALIZED" or deployment.get("execution") != "SUCCESS":
             raise SystemExit("current Studionet release deployment is not recorded as finalized successfully")
