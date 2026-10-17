@@ -1,10 +1,12 @@
 """Resumable Studionet verification for BoundaryOS.
 
-This tool never deploys. It saves a write intent before signing, captures the
-outer transaction hash as soon as the SDK submits it, recovers the GenLayer ID
-from the finalized EVM receipt if SDK polling is interrupted, and will not
-resend an unresolved intent. Checkpoints contain identifiers and evidence only;
-wallet keys and full signing material are never serialized.
+Scenario verification never deploys. Deployment is available only through the
+explicit deploy-source operation. The harness saves a write intent before
+signing, captures the outer transaction hash as soon as the SDK submits it,
+recovers the GenLayer ID from the finalized EVM receipt if SDK polling is
+interrupted, and will not resend an unresolved intent. Checkpoints contain
+identifiers and evidence only; wallet keys and full signing material are never
+serialized.
 """
 
 from __future__ import annotations
@@ -79,6 +81,32 @@ class ConsensusFailure(VerificationError):
 
 class UnresolvedBroadcast(VerificationError):
     """A transaction may have been broadcast, but its ID was not persisted."""
+
+
+def _safe_cli_diagnostics(lines: list[str], *, limit: int = 8) -> list[str]:
+    """Keep bounded CLI failure clues without persisting credentials or payloads."""
+    ansi_pattern = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+    credential_pattern = re.compile(
+        r"(?i)(private[_ -]?key|mnemonic|seed phrase|password|passphrase|secret|token)"
+        r"([\"']?\s*[:=]\s*[\"']?)[^\s,;\"']+"
+    )
+    hex_pattern = re.compile(r"\b0x[0-9a-fA-F]{40,}\b")
+    interesting = re.compile(
+        r"(?i)(error|exception|failed|failure|rpc|http\s*\d{3}|timeout|nonce|fee|invalid|denied)"
+    )
+    safe: list[str] = []
+    for line in lines:
+        clean = ansi_pattern.sub("", line).strip()
+        if not clean or not interesting.search(clean):
+            continue
+        clean = credential_pattern.sub(r"\1\2[REDACTED]", clean)
+        clean = hex_pattern.sub("[HEX_REDACTED]", clean)
+        clean = re.sub(r"\s+", " ", clean)[:300]
+        if clean not in safe:
+            safe.append(clean)
+        if len(safe) >= limit:
+            break
+    return safe
 
 
 @dataclass(frozen=True)
@@ -1000,10 +1028,13 @@ class StudionetVerifier:
                 bufsize=1,
             )
             wait_for_hash = False
+            diagnostic_lines: list[str] = []
             hash_pattern = re.compile(r"0x[a-fA-F0-9]{64}")
             ansi_pattern = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
             assert process.stdout is not None
             for line in process.stdout:
+                if len(diagnostic_lines) < 64:
+                    diagnostic_lines.append(line.rstrip("\r\n"))
                 clean = ansi_pattern.sub("", line)
                 if "BoundaryOS transaction hash:" in clean:
                     wait_for_hash = True
@@ -1061,7 +1092,11 @@ class StudionetVerifier:
         if intent.get("active_account_restore_failed"):
             raise VerificationError("CLI active account could not be restored; stop before any subsequent write")
         if not intent.get("outer_tx_hash"):
-            intent.update({"phase": "broadcast_unknown", "cli_exit_code": process.returncode if process else None})
+            intent.update({
+                "phase": "broadcast_unknown",
+                "cli_exit_code": process.returncode if process else None,
+                "cli_diagnostics": _safe_cli_diagnostics(diagnostic_lines),
+            })
             self.checkpoint.save()
             raise UnresolvedBroadcast(
                 "GenLayer CLI exited without a captured write transaction hash; automatic resend is disabled"
@@ -1640,7 +1675,7 @@ def run_live_suite(
     max_polls: int = 30,
     consumer_contract_address: str | None = None,
 ) -> None:
-    """Run resumable diagnostic flows on the specified instance; never deploys."""
+    """Run resumable scenario checks on an existing instance; never deploys."""
     signer_address = account.address
     if verifier.read("is_principal_admitted", [signer_address]) is not True:
         verifier.write_once(

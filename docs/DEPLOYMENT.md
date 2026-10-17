@@ -1,85 +1,70 @@
 # Deployment and verification record
 
-## Corrected source status
+## Current corrected-source deployment
 
-A source review found a concrete resource-exhaustion path: any address could self-register against an admitted principal and occupy its agent slots without that principal's approval. The current repository source closes this path by requiring an address-specific principal approval, reserving bounded active-plus-pending slots, and allowing the principal or contract owner to cancel an unused approval. The corrected source file SHA-256 is `7fc5610a160d0094eac3158680fc93237e792a3cc6a9a30e60441e9fde7fb627`. Its regression coverage includes unauthorized Sybil registration, pending-approval cap and cancellation, policy-cap release, and expired proposal-slot reclamation.
-
-This corrected source has **not** been deployed. The Studionet instance below is the pre-correction implementation and must not be used as proof for the new approval rules. A new deployment and its live acceptance suite are blocked by the unresolved primary signer nonce 2686 described below. No transaction was resubmitted and no source parity claim is made for the current repository source.
-
-## Previous resource-lifecycle candidate deployment
-
-The earlier resource-lifecycle candidate is deployed on Studionet at [`0x7d59607d8E42Cf20e6c6988DdfFe17514D11B4FB`](https://explorer-studio.genlayer.com/address/0x7d59607d8E42Cf20e6c6988DdfFe17514D11B4FB). Deployment transaction [`0x275ef9638bbaa495c20d9662e91780de30ab41d886b4374e7379fe8aafc63518`](https://explorer-studio.genlayer.com/tx/0x275ef9638bbaa495c20d9662e91780de30ab41d886b4374e7379fe8aafc63518) finalized with `MAJORITY_AGREE`, VM `SUCCESS`, one round, and 3 agree / 2 idle votes. That deployed file is byte-identical to `contracts/boundary_os.py` in source commit `6d0d9ddf5b916fa4fc27613e48718021a1cc97f9`; its exact source file SHA-256 is `77c07245b23c77cf7d6a286df92e4a3f99d0ffc89fefbe603e87c979ef5dfbc9`. Official GenLayer CLI 0.39.1 `code` retrieval exactly matched that historical source after removing the CLI result wrapper and surrounding newlines; the normalized deployed body hash is `05a1cde5cfe1b4c0a741791d7d98b2a53f4289bbf79beb9e8acff2f70a54ea5d`. This parity result applies only to commit `6d0d9dd`, not the corrected repository source.
-
-The test-only consumer fixture is separately deployed at `0x4439B1c1Ab602ec780F6E6139ffb7868B3c8bfa6`; deployment transaction `0x525a11eee7fe9c36865de3f33617ebf4cae55b8d204d3ff3bba44c7a9096116d` finalized with `MAJORITY_AGREE` and VM `SUCCESS`. Its cross-contract lifecycle has not yet been exercised.
-
-Read-only Python SDK calls at `LATEST_FINAL` confirmed primary-principal admission, registered/unfrozen agent state, policy ID `resume-a21840a30e6f`, policy instance `1`, and the exact expected policy terms. Three setup writes finalized: principal admission (`0x6d4486c01a0cd50dadd0f02565c8ea3252e535aec53f813c050db77fbffb0dcb`, nonce 2683), agent registration (`0x76bb11216f081fb95411578d3ca47b9fe453cafd30abc1039040c4d0dae9fabc`, nonce 2684), and policy creation (`0xead0a41df709a18e92babfe762c2e95f4ac2d618685c7255d1d304ef4d8bae7d`, nonce 2685); all finalized `MAJORITY_AGREE` with VM `SUCCESS`.
-
-The next `authorize_consumer` attempt at primary signer nonce 2686 exited without a captured hash. Its checkpoint records `latest=2686` and `pending=2686`, but those values do not prove that no transaction was ever broadcast. Studionet returns `Method not found` for `txpool_content`, and the installed CLI exposes no history-by-signer-nonce lookup. The harness therefore leaves the intent unresolved and refuses another primary-signer write. A prior hashless consumer-fixture deployment intent at nonce 2683 was not finalized under its own identity; the later, different principal-admission transaction finalized at nonce 2683. Whether the first attempt was broadcast and later dropped or replaced is unknown. The cross-checkpoint nonce guard was added and unit-tested so separate checkpoint files cannot silently reuse unresolved signer nonces.
-
-The previous cross-checkpoint guard passed [CI run 39010889911](https://github.com/Chinny070/BoundaryOS/actions/runs/39010889911) on commit `3d345b6bc152539d692925f07d21d592be6ea8e8`. The corrected approval source passed [CI run 39011945240](https://github.com/Chinny070/BoundaryOS/actions/runs/39011945240) on commit `03447b9ba09bced9ab151bc7212b423d7bcd8c82`: 69 Linux tests (50 Direct Mode and 19 helpers), pinned GenVM lint/check/schema/typecheck, and release configuration; Windows passed 19 helper tests and release configuration. Local compile, the 19 helper tests, release configuration, pinned GenVM lint (3 checks), SDK validation (31 methods: 10 views and 21 writes), schema, and typecheck also passed. The local Windows Direct Mode attempt fails before contract load because `gltest` unlinks a locked temporary file (`WinError 32`). The corrected source and the previous deployed candidate are not source-identical; the new fix is not deployed, and no live acceptance behavior has been run against it. Full evidence and exact blocked intents are in [resource lifecycle candidate evidence](evidence/resource-lifecycle-candidate.json).
-
-## Last verified Studionet deployment
-
-BoundaryOS is deployed on GenLayer Studionet at `0xb95a995A42E68455223DCC05403c98fDf40657FB`. This is the corrected source release; the predecessor at `0x6692eB74852dD1b56966ac7AdC0ACDDA4Fe074BF` remains historical and is not the current release target.
+The principal-approved registration correction is deployed on GenLayer Studionet. The canonical release candidate is [`0xe6b915d1DAb0EC9035D07368938413798d77c959`](https://explorer-studio.genlayer.com/address/0xe6b915d1DAb0EC9035D07368938413798d77c959). This is a fresh deployment of the corrected source, not a relabeling of a historical instance.
 
 | Evidence | Verified value |
 |---|---|
-| Network | Studionet, chain ID `61999`, RPC `https://studio.genlayer.com/api` |
-| Canonical contract | `0xb95a995A42E68455223DCC05403c98fDf40657FB` |
-| Deployment transaction | `0x7238677bd99f6a1b8ecdda5fc7bf73c7e4e8c9b5dce88fee303ef4361b4a8268` |
-| Deployment sender nonce | `2634` |
-| Deployment status | `FINALIZED`, `MAJORITY_AGREE`, VM `SUCCESS`, one round; 3 agree and 2 idle votes |
-| Frozen source commit | `df980984f752d2cf367743d4f0a458e8af5712e0` |
-| `contracts/boundary_os.py` SHA-256 | `86720777484aea493439d960cb741639b2320f00d81bd790b3dc14ee547f0937` |
-| Deployed source parity | Official GenLayer CLI 0.39.1 `code` retrieval matches the committed source text after removing only the CLI result wrapper and surrounding newlines. The normalized retrieved body SHA-256 is `d415b664f8b904b39dfd93115bfe39f95df5b87cff0323eb742d5d1d737ef627`; the repository file hash above includes its final newline. |
-| Explorer | [Contract address](https://explorer-studio.genlayer.com/address/0xb95a995A42E68455223DCC05403c98fDf40657FB) and [deployment transaction](https://explorer-studio.genlayer.com/tx/0x7238677bd99f6a1b8ecdda5fc7bf73c7e4e8c9b5dce88fee303ef4361b4a8268). Both routes returned HTTP 200. The address-page HTML contained both identifiers. The transaction detail page was client-rendered and did not include the contract address in its static response; finality and validator votes were independently verified through CLI receipt and RPC. |
+| Network | Studionet, chain ID `61999` |
+| Contract | `0xe6b915d1DAb0EC9035D07368938413798d77c959` |
+| Deployment transaction | [`0xbb04d21b3d0784a2c61fcaedc0b83635571118ba1d18b5a59654d041df457eec`](https://explorer-studio.genlayer.com/tx/0xbb04d21b3d0784a2c61fcaedc0b83635571118ba1d18b5a59654d041df457eec) |
+| Signer nonce | `419` |
+| Finality | `FINALIZED`, `MAJORITY_AGREE`, VM `SUCCESS`, one round, five agree votes |
+| Contract source commit | `03447b9ba09bced9ab151bc7212b423d7bcd8c82` |
+| Contract file SHA-256 | `7fc5610a160d0094eac3158680fc93237e792a3cc6a9a30e60441e9fde7fb627` |
+| Deployed source parity | Retrieved with GenLayer CLI `code`; normalized deployed source matched the committed contract text byte-for-byte after removing the CLI result wrapper and outer newlines. Normalized retrieved body SHA-256: `abc1144c5614e4704e3948225a00d298f855f9f76843d7ca8c255a9493c898d3`. |
+| Explorer | Address and transaction routes returned HTTP 200. The address page included the contract and deployment transaction. The transaction page's static HTML did not include the contract address; finality and source parity were verified independently through CLI/RPC. |
 
-The canonical release was deployed through the existing CLI-backed resumable workflow. It was not relabeled from a disposable deployment. Deployed source was retrieved independently from the contract address; no redeployment was performed after verification.
+The test-only consumer fixture is deployed at [`0x1efcCe3dFA92abdcd5887ceF8956cd63F7d816f5`](https://explorer-studio.genlayer.com/address/0x1efcCe3dFA92abdcd5887ceF8956cd63F7d816f5). Its deployment transaction is `0xb78ed578e912103cbb9561c2bf6d02bef8da27c147625a9c1ac3edd3598005db`, finalized with `MAJORITY_AGREE` and VM `SUCCESS`. Its source SHA-256 is `850e271a6ad274551183484b5a219eb8130322bb3070cab70cce5dd6e3f8ecbc`.
 
-## Live release verification
+The full secret-free transaction and scenario record is [principal-approval-release.json](evidence/principal-approval-release.json). Local checkpoint files remain Git-ignored.
 
-The full resumable suite completed on this canonical address. The suite checkpoint is local and Git-ignored; the committed secret-free, machine-readable evidence—including all 33 finalized scenario transactions, their validator votes and execution results—is [studionet-canonical-release.json](evidence/studionet-canonical-release.json).
+## Live verification on the corrected deployment
 
-| Scenario | Finalized state and readback |
+The workflow used GenLayer CLI `0.39.1` with named-wallet signing and official Python SDK typed state reads at `LATEST_FINAL`. Every listed transaction was reconciled to a transaction ID and finalized before its state was read.
+
+| Scenario | Verified result |
 |---|---|
-| Setup | Agent registration, policy creation, and consumer authorization finalized successfully. |
-| Semantic match | `ALLOW / MATCH`; action is `EVALUATED`; receipt digest valid; provenance `CALLER_ASSERTED`. |
-| Receipt consumption | First consumption finalized; receipt is marked consumed by the authorized consumer and its digest remains valid after the state change. |
-| Replay | Second consumption finalized with `MAJORITY_AGREE` and expected VM `ERROR`; consumed receipt remained consumed. |
-| Semantic mismatch | `DENY_PURPOSE / MISMATCH`; action is `EVALUATED`; receipt digest valid. |
-| Deterministic hard deny | `DENY_HARD_RULE / NOT_EVALUATED`; semantic evaluator was skipped. |
-| Aggregate quota | Matching actions at 250 cents were allowed through the 1,000-cent cap. A further 1-cent action finalized `DENY_AGGREGATE_CAP / NOT_EVALUATED`. |
-| Agent freeze | `DENY_FROZEN / NOT_EVALUATED`; final agent readback is registered and unfrozen after the smoke test cleanup. |
-| Delegation boundary | Child request for 501 cents against the 500-cent parent bound finalized as the expected contract rejection; no child delegation record was created. |
-| Policy freshness | A fresh version-two receipt was consumable before the version-three update and non-consumable after it. |
-| Revocation | A pending action evaluated after policy revocation finalized `DENY_STALE_POLICY`; receipt digest valid. |
+| Principal admission and address-specific agent approval | Finalized successfully; approved agent registration and policy creation read back at `LATEST_FINAL`. |
+| Semantic match | Action `2cfd960294c83457578b2ae0ca94811786b247d6391633927b553325ec5137dd` evaluated as `ALLOW / MATCH`; receipt digest verified. |
+| Receipt use and replay | First `consume_authorization` finalized and read back consumed, with a valid recomputed digest. A second consumption finalized with expected VM `ERROR`; the consumed receipt remained consumed. |
+| Semantic mismatch | Action `07ae010a2eb7b146b5d108a860c7243f5d4d8d546f096705643e8ffdd0e0143e` evaluated as `DENY_PURPOSE / MISMATCH`; receipt digest verified. |
+| Deterministic hard denial | Action `96f5ffb8698c2e86a05b20055e396e7b72aec0cd504a1e9c66b689b08c1e5159` evaluated as `DENY_HARD_RULE / NOT_EVALUATED`; semantic evaluation was skipped. |
+| Delegation boundary | A request to widen the parent amount bound finalized as expected VM `ERROR`; a bounded delegation finalized successfully. |
+| Delegated child proposal and evaluation | The consumer fixture registered as the child agent, submitted a delegated action, and invoked its evaluation. Both internal child transactions finalized. Independent finalized-state readback showed the child action as `ALLOW / MATCH` with a valid receipt digest. |
 
-The full scenario state was independently reread through the official Python SDK at `LATEST_FINAL`. All tested actions read back as `EVALUATED`, all stored receipt digests recomputed correctly, the semantic-match receipt was consumed, the delegation record was absent, and the primary agent was registered and unfrozen. Evidence provenance remains caller asserted; the contract does not independently authenticate external evidence.
+The child receipt was **not consumed**. The harness's consumer `request_protected_operation` write at signer nonce `441` exited with code `1` without returning a transaction hash. The checkpoint records `phase=broadcast_unknown`. This attempt may have been broadcast; it is not classified as dropped or never submitted.
 
-## Nonce reconciliation and harness correction
+Reconciliation did not establish a transaction identity. The RPC returned `Method not found` for `txpool_content`, `eth_pendingTransactions`, and `txpool_status`; the installed CLI does not provide transaction lookup by signer and nonce. `latest=441` and `pending=441` do not prove non-broadcast. The Explorer account activity view did not show this method, but it does not expose mempool records and cannot settle the question. The harness refused to resend the write. The original short-lived child receipt has expired and must not be reused.
 
-The first resumed quota run exposed a harness resume bug: the already-finalized fourth matching action had application nonce `6`, but a checkpoint interruption left `last_action_nonce` at `5`. The harness attempted a 1-cent proposal with the reused application nonce `6`; transaction `0x3ead924f2125e0658164a71d56d01247a4dcc129183efd32ca33c426523e9e1c` finalized with `MAJORITY_AGREE` and VM `ERROR`, and finalized reads found no action or receipt for that failed proposal. The harness now advances its application nonce high-water mark from every resumed action readback. It preserves a finalized failed attempt, verifies its action/receipt are absent, and derives a new action ID at nonce `7`. That fresh proposal and its evaluation finalized and read back as `DENY_AGGREGATE_CAP / NOT_EVALUATED`.
+The following live tests remain outstanding on this corrected deployment: delegated child receipt consumption and replay through the consumer, consumer child-error recovery and repeated completion, aggregate quota enforcement, freeze, policy revocation, and deployed-state reclamation at the resource caps. Do not transfer their prior-address or local test results to this deployment.
 
-The earlier `quota_match_4.submit` intent reserved signer EVM nonce `2651`, while the transaction metadata showed actual nonce `2652`. Its sole known broadcast finalized successfully as transaction `0x539a74e1330bcc4416af1284d22d4cf8debc248669ec1b7702cd3b8d34c5b0e3`; the corresponding action exists at finalized state. It was not resent. Additional consumed primary-signer nonce values `2649`, `2662`, `2665`, `2667`, `2669`, and `2673` have no transaction hashes in the verification checkpoint, so their origin and payload are unknown. At the final read-only preflight, `latest=2674` and `pending=2674`; there was no pending signer transaction. All BoundaryOS release writes listed in the evidence file were individually reconciled by transaction hash and finalized. The cause of the unattributed nonce gaps is not claimed.
+## Resource-cap correction and local evidence
 
-The predecessor's unresolved consume intent at nonce `2624` remains documented as historically ambiguous and was never resent. It pertains to the prior address, not this corrected canonical instance. See [predecessor evidence](evidence/studionet-legacy-canonical-history.json) and the full [historical deployment record](DEPLOYMENT_HISTORICAL.md).
+The corrected source requires a principal to approve each exact agent address before registration. Pending approvals reserve bounded active-plus-pending per-principal and global slots, and either the principal or contract owner can cancel an unused approval. Regression tests cover unauthorized/Sybil registration, reservation-cap exhaustion and cancellation, principal-slot isolation, policy-cap reclamation, and expired-proposal reclamation. These establish local behavior; the live Studionet resource-reclamation cases are not yet run.
 
-## Local validation
-
-Verified locally after the resumable nonce fix and finalized action-state readback:
+After adding secret-redacted CLI failure diagnostics, the local checks were:
 
 | Check | Result |
 |---|---|
-| `python -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py -q --tb=short` | **61 passed** |
+| Direct Mode plus resumable harness helpers | **70 passed** (50 contract tests, 20 helper tests) |
 | `python -m compileall -q contracts tests` | Passed |
-| `genvm-lint lint contracts/boundary_os.py` | Passed, 3 checks |
-| `genvm-lint check contracts/boundary_os.py --json` | Passed; 22 methods (8 views, 14 writes) |
-| `genvm-lint schema contracts/boundary_os.py` | Passed; schema lists 22 methods |
-| `genvm-lint typecheck contracts/boundary_os.py` | Passed; no type errors |
 | `python scripts/check_release_config.py` | Passed |
+| Pinned GenVM lint (`v0.2.16`) | Passed, 3 checks |
+| SDK validation | Passed, 31 methods: 10 views and 21 writes |
+| GenVM schema | Passed, 31 methods |
+| GenVM typecheck | Passed |
+| GitHub Actions before the latest diagnostics-only helper change | Passed on `b7ecf5d9a14f7e64391e3d921398763aa2c1ea34`: Linux tests and GenVM checks; Windows helper tests and release configuration. |
 
-For Windows, run the linter from the project release environment with `PYTHONIOENCODING=utf-8` and `GENVM_VERSION=v0.2.16`, the cached runner that matches the contract's pinned SDK. The unpinned newer runner extraction hits Windows `WinError 5`; the global `genvm-lint.exe` shim also points to an incomplete Python installation. No security protection was disabled. The pinned cached-runner checks above pass.
+The system `genvm-lint` shim failed to fetch SDK metadata under sandbox networking (`WinError 10013`); the pinned `.venv-release` runner completed validation. The Windows Direct Mode runner has previously failed before contract execution because `gltest` attempted to unlink a locked temporary file (`WinError 32`). No security protections were disabled.
+
+## Older instances and unresolved history
+
+The older pre-correction resource-lifecycle deployment at `0x7d59607d8E42Cf20e6c6988DdfFe17514D11B4FB` and the historical release at `0xb95a995A42E68455223DCC05403c98fDf40657FB` are not the current corrected deployment. Their transaction records remain in [resource-lifecycle candidate evidence](evidence/resource-lifecycle-candidate.json), [canonical release evidence](evidence/studionet-canonical-release.json), and [historical deployment record](DEPLOYMENT_HISTORICAL.md). Do not use those records as proof for the current address.
+
+The older primary-wallet unresolved intents, including nonce `2686`, and predecessor nonce `2624` remain historical uncertainties. The current consumer write at nonce `441` is a separate unresolved intent on the secondary wallet. No ambiguous write was resent. Checkpoint and nonce reconciliation logic continues to require finalized transaction identity, not latest/pending nonce equality.
 
 ## Readiness
 
-The prior frozen deployment has substantial documented live evidence, but the resource-lifecycle candidate is **not submission-ready**. Required remaining gates are the full candidate acceptance matrix, live state-reclamation regressions, successful delegated-child authorization/evaluation/receipt consumption, consumer child-error recovery and repeated completion, and CI confirmation of the cross-checkpoint nonce guard. The candidate deployment finality, source parity, and setup readbacks are verified; those facts do not substitute for the missing behavior tests. Caller-asserted evidence, unattributed historical signer nonce gaps, the earlier nonce-2624 uncertainty, and the current nonce-2686 unresolved attempt remain documented limitations.
+**Not submission-ready.** The corrected contract is deployed, finalized, and source-parity verified, and the live scenarios listed above have genuine Studionet finality and state-readback evidence. The delegated child ALLOW receipt has not been consumed, nonce `441` remains unreconciled, and the consumer-composability and live resource-lifecycle gates remain incomplete. Evidence provenance remains `CALLER_ASSERTED`; this contract does not independently authenticate external facts.

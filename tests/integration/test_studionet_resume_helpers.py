@@ -18,6 +18,7 @@ from studionet_resume import (
     _finalized_no_majority_without_execution,
     _finalized_contract_execution_error,
     _record_action_nonce,
+    _safe_cli_diagnostics,
     parse_cli_accounts,
     scenario_step,
     _resolve_cli_entry,
@@ -31,6 +32,20 @@ def test_rpc_failure_classification_separates_contract_and_transport():
     assert classify_rpc_error({"code": -32000, "message": "execution failed", "data": {"receipt": {"execution_result": "ERROR"}}}) == "contract_execution"
     assert classify_rpc_error({"code": -32603, "message": "internal error"}) == "rpc_or_protocol"
     assert classify_rpc_error({"code": -32601, "message": "method not found"}) == "rpc_application"
+
+
+def test_cli_failure_diagnostics_are_bounded_and_redact_secrets_and_addresses():
+    lines = [
+        "ordinary startup output",
+        "Error: HTTP 502 from https://rpc.invalid; token=super-secret-value",
+        "nonce conflict for 0x" + "a" * 64,
+    ] + [f"RPC failure detail {i}" for i in range(20)]
+    result = _safe_cli_diagnostics(lines, limit=2)
+    assert len(result) == 2
+    assert "HTTP 502" in result[0]
+    assert "[REDACTED]" in result[0]
+    assert "super-secret-value" not in " ".join(result)
+    assert "0x" + "a" * 64 not in " ".join(result)
 
 
 def test_checkpoint_is_atomic_persistent_and_bound_to_public_identity(tmp_path, monkeypatch):

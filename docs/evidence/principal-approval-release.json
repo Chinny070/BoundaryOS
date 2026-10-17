@@ -1,0 +1,597 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T08:17:28Z",
+  "network": {
+    "name": "GenLayer Studionet",
+    "chain_id": 61999,
+    "rpc": "https://studio.genlayer.com/api"
+  },
+  "source": {
+    "path": "contracts/boundary_os.py",
+    "sha256": "7fc5610a160d0094eac3158680fc93237e792a3cc6a9a30e60441e9fde7fb627",
+    "source_commit": "03447b9ba09bced9ab151bc7212b423d7bcd8c82",
+    "source_commit_short": "03447b9ba09b",
+    "deployed_source_parity": "verified via GenLayer CLI code retrieval; normalized deployed source matched committed source text byte-for-byte after removing CLI wrapper and outer newlines"
+  },
+  "corrected_contract": {
+    "address": "0xe6b915d1DAb0EC9035D07368938413798d77c959",
+    "explorer_url": "https://explorer-studio.genlayer.com/address/0xe6b915d1DAb0EC9035D07368938413798d77c959",
+    "deployment_tx": "0xbb04d21b3d0784a2c61fcaedc0b83635571118ba1d18b5a59654d041df457eec",
+    "deployment_tx_url": "https://explorer-studio.genlayer.com/tx/0xbb04d21b3d0784a2c61fcaedc0b83635571118ba1d18b5a59654d041df457eec",
+    "signer": "0x3a3168d67a110de79461939047a8f7334ff1423d",
+    "nonce": 419,
+    "status": "FINALIZED",
+    "consensus": "MAJORITY_AGREE",
+    "execution": "SUCCESS",
+    "validator_votes": {
+      "0x40533175AfBbAee2c030F88259Afb5aEDbCF0E05": "agree",
+      "0x8a876C3F3a4783Bd123982bcBF3c672dc0239004": "agree",
+      "0x9244De5F20cB75A0c51d79A9A3208D00a99aFc10": "agree",
+      "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree",
+      "0xf1C7551292319EE334e2D8A24eAC108Bd4C63b21": "agree"
+    }
+  },
+  "test_consumer_fixture": {
+    "address": "0x1efcCe3dFA92abdcd5887ceF8956cd63F7d816f5",
+    "explorer_url": "https://explorer-studio.genlayer.com/address/0x1efcCe3dFA92abdcd5887ceF8956cd63F7d816f5",
+    "deployment_tx": "0xb78ed578e912103cbb9561c2bf6d02bef8da27c147625a9c1ac3edd3598005db",
+    "source_sha256": "850e271a6ad274551183484b5a219eb8130322bb3070cab70cce5dd6e3f8ecbc",
+    "status": "FINALIZED",
+    "consensus": "MAJORITY_AGREE",
+    "execution": "SUCCESS"
+  },
+  "verification_cli": "GenLayer CLI 0.39.1 named keystore account; official Python SDK typed reads at LATEST_FINAL",
+  "finalized_transactions": {
+    "0x0dd91abba6e07e39916f8a8075e291c5d436612a2fbaf082e47b964e617436bb": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 425,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x40533175AfBbAee2c030F88259Afb5aEDbCF0E05": "agree",
+        "0x6a4179A851B3747A458baD2f089AB2EeFE0eBbAb": "idle",
+        "0x7bf4Ea55363bbe73A4dd5b3900bf03c978A63b6e": "agree",
+        "0x8a876C3F3a4783Bd123982bcBF3c672dc0239004": "agree",
+        "0xA712cB25a4002666FA9D09477251f238dD9e06b3": "idle"
+      },
+      "vm_error_code": null
+    },
+    "0x117874af4731be3ce8871c1f041e072652b0bb99e349256e41c57230d09c75a8": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 432,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "agree",
+        "0x892C437da9b9CA0b6017B6f046F58E3526B46ec6": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree",
+        "0xb0925568bFbCF00aADBcA053E6D0E1628ff3d530": "idle",
+        "0xf29b6947ed298d139FC2655DB15D868C9AbB3091": "idle"
+      },
+      "vm_error_code": null
+    },
+    "0x1cf4d61c46cac3dba23bc0b0e338d27cdc6d6e4dafcab49e6e6c54389db23ffd": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 427,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "agree",
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "idle",
+        "0x8Ce1805d6970d54748dE7160b5b395dCC5c71F44": "agree",
+        "0xA712cB25a4002666FA9D09477251f238dD9e06b3": "agree",
+        "0xe7eEe8a1c1690b0322d795B80A76ab2Cd1a0eAFd": "idle"
+      },
+      "vm_error_code": null
+    },
+    "0x2305147f17d3b9f5556eae74638f629107a601527b4db83ade54af91c4413016": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 439,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "agree",
+        "0x1dEcE6A694520b1d3a2e24b9f28500858C756BDb": "idle",
+        "0x2FcBC452425f2F1e102c5c04b4331fcB46ee1c00": "agree",
+        "0xa21bc502E3578E4b3039be8c59a257198f7c3f19": "idle",
+        "0xe7eEe8a1c1690b0322d795B80A76ab2Cd1a0eAFd": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0x2df32964daf476cc7741be935827c46b5ee01146903e55c53890e54574242912": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 435,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x2FcBC452425f2F1e102c5c04b4331fcB46ee1c00": "agree",
+        "0x5Bbbd7cdD63c0ba7f088038Cb049bDDAbE4F6fd1": "idle",
+        "0x8Ce1805d6970d54748dE7160b5b395dCC5c71F44": "agree",
+        "0x8a876C3F3a4783Bd123982bcBF3c672dc0239004": "idle",
+        "0xA712cB25a4002666FA9D09477251f238dD9e06b3": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0x31495ca3044261b00a808d55e135523dc904d9666bd9a9a629eb2e2ba6bc5e7b": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 433,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "idle",
+        "0x7bf4Ea55363bbe73A4dd5b3900bf03c978A63b6e": "agree",
+        "0x892C437da9b9CA0b6017B6f046F58E3526B46ec6": "agree",
+        "0x8Ce1805d6970d54748dE7160b5b395dCC5c71F44": "agree",
+        "0xb0925568bFbCF00aADBcA053E6D0E1628ff3d530": "idle"
+      },
+      "vm_error_code": null
+    },
+    "0x3814fed8d06a53614f3bccbcc22a7d9c9c358ce5886e3feacb3b8520df7efc68": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 0,
+      "sender": "0x1efcCe3dFA92abdcd5887ceF8956cd63F7d816f5",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "idle",
+        "0x1dEcE6A694520b1d3a2e24b9f28500858C756BDb": "agree",
+        "0x6a4179A851B3747A458baD2f089AB2EeFE0eBbAb": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree",
+        "0xe7eEe8a1c1690b0322d795B80A76ab2Cd1a0eAFd": "idle"
+      },
+      "vm_error_code": null
+    },
+    "0x3c16893030edfd5686b44d01e429709502dee4cb220b7b908cf822f3dd4deae4": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 438,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "agree",
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "agree",
+        "0x2FcBC452425f2F1e102c5c04b4331fcB46ee1c00": "idle",
+        "0x5Bbbd7cdD63c0ba7f088038Cb049bDDAbE4F6fd1": "idle",
+        "0xA712cB25a4002666FA9D09477251f238dD9e06b3": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0x58db2825ea77b33a20ea4af6068306569b1d2f736379d98b841551fd57629935": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 428,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "idle",
+        "0x40533175AfBbAee2c030F88259Afb5aEDbCF0E05": "agree",
+        "0x7bf4Ea55363bbe73A4dd5b3900bf03c978A63b6e": "agree",
+        "0xe7eEe8a1c1690b0322d795B80A76ab2Cd1a0eAFd": "agree",
+        "0xf1C7551292319EE334e2D8A24eAC108Bd4C63b21": "idle"
+      },
+      "vm_error_code": null
+    },
+    "0x60c35f076c0e9707743ab0a40cda5cc3d8e652c1550e5e9a72b4a3c4cbb40b9d": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 423,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "agree",
+        "0x5Bbbd7cdD63c0ba7f088038Cb049bDDAbE4F6fd1": "agree",
+        "0x7bf4Ea55363bbe73A4dd5b3900bf03c978A63b6e": "idle",
+        "0xA712cB25a4002666FA9D09477251f238dD9e06b3": "agree",
+        "0xa21bc502E3578E4b3039be8c59a257198f7c3f19": "idle"
+      },
+      "vm_error_code": null
+    },
+    "0x6a010da4e91b2a639334e6cc5f3f26a3fb3190d9805926ea90149a990520bdfd": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 426,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "idle",
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "agree",
+        "0x6a4179A851B3747A458baD2f089AB2EeFE0eBbAb": "idle",
+        "0x892C437da9b9CA0b6017B6f046F58E3526B46ec6": "agree",
+        "0x8a876C3F3a4783Bd123982bcBF3c672dc0239004": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0x6c6d1ebdcc83372d64a4459f28d92880e9ce1809fed9e8f3d4015610b720aa48": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 1,
+      "sender": "0x1efcCe3dFA92abdcd5887ceF8956cd63F7d816f5",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x2FcBC452425f2F1e102c5c04b4331fcB46ee1c00": "agree",
+        "0x40533175AfBbAee2c030F88259Afb5aEDbCF0E05": "idle",
+        "0xa21bc502E3578E4b3039be8c59a257198f7c3f19": "idle",
+        "0xb0925568bFbCF00aADBcA053E6D0E1628ff3d530": "agree",
+        "0xf1C7551292319EE334e2D8A24eAC108Bd4C63b21": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0x7149c220d5575915464def5c13101527b0c27ecc6999af7d5ced527e7ee58a8f": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 430,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "agree",
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "agree",
+        "0x7bf4Ea55363bbe73A4dd5b3900bf03c978A63b6e": "idle",
+        "0x9244De5F20cB75A0c51d79A9A3208D00a99aFc10": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "idle"
+      },
+      "vm_error_code": null
+    },
+    "0x7b8707d03c8a4dfc707c0022b2aad9ccce6f49fc3d9369b476092598a83cbbfd": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 434,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "idle",
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "agree",
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "agree",
+        "0x2FcBC452425f2F1e102c5c04b4331fcB46ee1c00": "idle",
+        "0xA712cB25a4002666FA9D09477251f238dD9e06b3": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0x800c84af5bc62050d7841624a71c4b60575316e554673cd4816e748066da05bb": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 424,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "agree",
+        "0x5Bbbd7cdD63c0ba7f088038Cb049bDDAbE4F6fd1": "agree",
+        "0x8Ce1805d6970d54748dE7160b5b395dCC5c71F44": "idle",
+        "0xA712cB25a4002666FA9D09477251f238dD9e06b3": "idle",
+        "0xa21bc502E3578E4b3039be8c59a257198f7c3f19": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0x8ad5ff96db4e27b4798207249e88e5a108c68ce761b81a54182e76896c0be658": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 421,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "agree",
+        "0x1dEcE6A694520b1d3a2e24b9f28500858C756BDb": "agree",
+        "0x6a4179A851B3747A458baD2f089AB2EeFE0eBbAb": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree",
+        "0xe7eEe8a1c1690b0322d795B80A76ab2Cd1a0eAFd": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0x8e7d95e89bcae6ce45ea9a605951dedf67616708c53867a482d8bb9c8e7845f1": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 440,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "idle",
+        "0x6a4179A851B3747A458baD2f089AB2EeFE0eBbAb": "agree",
+        "0x8a876C3F3a4783Bd123982bcBF3c672dc0239004": "idle",
+        "0xa21bc502E3578E4b3039be8c59a257198f7c3f19": "agree",
+        "0xf29b6947ed298d139FC2655DB15D868C9AbB3091": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0xaede42ee6487d159c3efc09a42d9ef1ff234e39fe08fbe1c986cbf972b84dd81": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 437,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "agree",
+        "0x8a876C3F3a4783Bd123982bcBF3c672dc0239004": "idle",
+        "0x9244De5F20cB75A0c51d79A9A3208D00a99aFc10": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "idle",
+        "0xb0925568bFbCF00aADBcA053E6D0E1628ff3d530": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0xaf00ef5f67b1dcda83c176c31a4436cc6094835157ce0e79cf817596f660c91c": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 422,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "agree",
+        "0x2FcBC452425f2F1e102c5c04b4331fcB46ee1c00": "idle",
+        "0x7bf4Ea55363bbe73A4dd5b3900bf03c978A63b6e": "agree",
+        "0x892C437da9b9CA0b6017B6f046F58E3526B46ec6": "idle",
+        "0x9244De5F20cB75A0c51d79A9A3208D00a99aFc10": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0xb979553fe6fa47140b292c72b0201f5d95925472774f75a25ca2be9824c5ef4c": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 2,
+      "sender": "0x1efcCe3dFA92abdcd5887ceF8956cd63F7d816f5",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "agree",
+        "0x5Bbbd7cdD63c0ba7f088038Cb049bDDAbE4F6fd1": "agree",
+        "0x6a4179A851B3747A458baD2f089AB2EeFE0eBbAb": "idle",
+        "0x892C437da9b9CA0b6017B6f046F58E3526B46ec6": "disagree",
+        "0xe7eEe8a1c1690b0322d795B80A76ab2Cd1a0eAFd": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0xbf5b3e73406e19eb6da39b647ddee74bd53d83a1e828807c27913a2859d877b6": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 431,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "agree",
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "idle",
+        "0x6a4179A851B3747A458baD2f089AB2EeFE0eBbAb": "idle",
+        "0xA712cB25a4002666FA9D09477251f238dD9e06b3": "agree",
+        "0xa21bc502E3578E4b3039be8c59a257198f7c3f19": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0xc9dc3645672fd37156bb9961288f7a3e8c2f18bc31cfe6f6b2303b694b4f49c3": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "ERROR",
+      "nonce": 436,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "idle",
+        "0x5Bbbd7cdD63c0ba7f088038Cb049bDDAbE4F6fd1": "idle",
+        "0x9244De5F20cB75A0c51d79A9A3208D00a99aFc10": "agree",
+        "0xa21bc502E3578E4b3039be8c59a257198f7c3f19": "agree",
+        "0xb0925568bFbCF00aADBcA053E6D0E1628ff3d530": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0xe811d5d283537e2a81fca73454b1a1eddaa70f70913b26fab4cabe614945df54": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "ERROR",
+      "nonce": 429,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x0B50B270Eba5D9B780272C4Cf4720260177e761D": "agree",
+        "0x1242E9f5bf9b253327f130E8802b7b2F438A21Ef": "agree",
+        "0xa21bc502E3578E4b3039be8c59a257198f7c3f19": "agree",
+        "0xf1C7551292319EE334e2D8A24eAC108Bd4C63b21": "idle",
+        "0xf29b6947ed298d139FC2655DB15D868C9AbB3091": "idle"
+      },
+      "vm_error_code": null
+    },
+    "0xbb04d21b3d0784a2c61fcaedc0b83635571118ba1d18b5a59654d041df457eec": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 419,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x40533175AfBbAee2c030F88259Afb5aEDbCF0E05": "agree",
+        "0x8a876C3F3a4783Bd123982bcBF3c672dc0239004": "agree",
+        "0x9244De5F20cB75A0c51d79A9A3208D00a99aFc10": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree",
+        "0xf1C7551292319EE334e2D8A24eAC108Bd4C63b21": "agree"
+      },
+      "vm_error_code": null
+    },
+    "0xb78ed578e912103cbb9561c2bf6d02bef8da27c147625a9c1ac3edd3598005db": {
+      "status": "FINALIZED",
+      "consensus_outcome": "MAJORITY_AGREE",
+      "execution_result": "SUCCESS",
+      "nonce": 420,
+      "sender": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+      "rounds_observed": "1",
+      "validator_votes": {
+        "0x17ac0CaefB18205c737e64ee582c9245A28ca1f9": "agree",
+        "0x1dEcE6A694520b1d3a2e24b9f28500858C756BDb": "idle",
+        "0x2FcBC452425f2F1e102c5c04b4331fcB46ee1c00": "idle",
+        "0x7bf4Ea55363bbe73A4dd5b3900bf03c978A63b6e": "agree",
+        "0xad7d13f269CeAd4379E64a1A3a0803a827e70B43": "agree"
+      },
+      "vm_error_code": null
+    }
+  },
+  "scenarios": {
+    "delegation_child_lifecycle": {
+      "action_id": "81dbaaa2535dad227a6983ea0bc77d5fda9e2a3f2dd9c294b317bd6f4f4d2646",
+      "nonce": 1,
+      "expected_decision": null,
+      "expected_semantic_fit": null,
+      "observed_result": {},
+      "child_action_readback": {
+        "action_id": "81dbaaa2535dad227a6983ea0bc77d5fda9e2a3f2dd9c294b317bd6f4f4d2646",
+        "state": "EVALUATED",
+        "decision": "ALLOW",
+        "semantic_fit": "MATCH",
+        "receipt_digest_valid": true,
+        "evidence_provenance": "CALLER_ASSERTED",
+        "readback_source": "Official Python SDK TransactionHashVariant.LATEST_FINAL; observed during this run"
+      }
+    },
+    "deterministic_hard_deny": {
+      "action_id": "96f5ffb8698c2e86a05b20055e396e7b72aec0cd504a1e9c66b689b08c1e5159",
+      "nonce": 3,
+      "expected_decision": "DENY_HARD_RULE",
+      "expected_semantic_fit": "NOT_EVALUATED",
+      "observed_result": {
+        "action_state": "EVALUATED",
+        "decision": "DENY_HARD_RULE",
+        "semantic_fit": "NOT_EVALUATED",
+        "receipt_digest": "bf52cb50b0f9e616f030a2b7a775b13acaed3ec81f88b0479cf6ab2840dc87e9",
+        "receipt_digest_valid": true,
+        "evidence_provenance": "CALLER_ASSERTED"
+      }
+    },
+    "semantic_match": {
+      "action_id": "2cfd960294c83457578b2ae0ca94811786b247d6391633927b553325ec5137dd",
+      "nonce": 1,
+      "expected_decision": "ALLOW",
+      "expected_semantic_fit": "MATCH",
+      "observed_result": {
+        "action_state": "EVALUATED",
+        "decision": "ALLOW",
+        "semantic_fit": "MATCH",
+        "receipt_digest": "4e39ce97a7420d851fa8d4a9ed07eb3122739e84aa56a8ac54a1ee8fbd4f5c4d",
+        "receipt_digest_valid": true,
+        "consumed": true,
+        "consumed_by": "0x3A3168d67A110dE79461939047a8f7334ff1423d",
+        "legacy_receipt_digest_valid_after_consumption": true,
+        "evidence_provenance": "CALLER_ASSERTED"
+      }
+    },
+    "semantic_mismatch": {
+      "action_id": "07ae010a2eb7b146b5d108a860c7243f5d4d8d546f096705643e8ffdd0e0143e",
+      "nonce": 2,
+      "expected_decision": "DENY_PURPOSE",
+      "expected_semantic_fit": "MISMATCH",
+      "observed_result": {
+        "action_state": "EVALUATED",
+        "decision": "DENY_PURPOSE",
+        "semantic_fit": "MISMATCH",
+        "receipt_digest": "cde65ef948ac6b53ab30405cfe81967a925351c64362039c71331adbf216a670",
+        "receipt_digest_valid": true,
+        "evidence_provenance": "CALLER_ASSERTED"
+      }
+    }
+  },
+  "delegated_child_transactions": {
+    "consumer_register_child": {
+      "child_tx_id": "0x3814fed8d06a53614f3bccbcc22a7d9c9c358ce5886e3feacb3b8520df7efc68",
+      "observed_at": "2026-10-17T07:53:14.852632+00:00",
+      "parent_tx_id": "0x2df32964daf476cc7741be935827c46b5ee01146903e55c53890e54574242912"
+    },
+    "consumer_submit_child_action": {
+      "child_tx_id": "0x6c6d1ebdcc83372d64a4459f28d92880e9ce1809fed9e8f3d4015610b720aa48",
+      "observed_at": "2026-10-17T07:59:06.705237+00:00",
+      "parent_tx_id": "0x2305147f17d3b9f5556eae74638f629107a601527b4db83ade54af91c4413016"
+    },
+    "consumer_evaluate_child_action": {
+      "child_tx_id": "0xb979553fe6fa47140b292c72b0201f5d95925472774f75a25ca2be9824c5ef4c",
+      "observed_at": "2026-10-17T08:00:57.461390+00:00",
+      "parent_tx_id": "0x8e7d95e89bcae6ce45ea9a605951dedf67616708c53867a482d8bb9c8e7845f1"
+    },
+    "child_action_id": "81dbaaa2535dad227a6983ea0bc77d5fda9e2a3f2dd9c294b317bd6f4f4d2646",
+    "child_receipt_consumption": "not completed; fresh receipt expired before consumption attempt"
+  },
+  "unresolved_intent": {
+    "step": "delegation.child_consume",
+    "method": "request_protected_operation",
+    "contract": "0x1efcCe3dFA92abdcd5887ceF8956cd63F7d816f5",
+    "signer": "0x3a3168d67a110de79461939047a8f7334ff1423d",
+    "reserved_nonce": 441,
+    "phase": "broadcast_unknown",
+    "transaction_hash": null,
+    "cli_exit_code": 1,
+    "latest_nonce": 441,
+    "pending_nonce": 441,
+    "classification": "unknown: may have been broadcast; not reconciled",
+    "disposition": "no retry; latest/pending equality is not proof of non-broadcast",
+    "rpc_reconciliation": "txpool_content, eth_pendingTransactions, and txpool_status returned JSON-RPC method not found; CLI exposes no supported lookup by signer and nonce",
+    "explorer_observation": "account activity page showed no visible request_protected_operation, but does not expose mempool and is not authoritative"
+  },
+  "readback": {
+    "source": "official Python SDK TransactionHashVariant.LATEST_FINAL",
+    "delegated_child_agent": "registered, unfrozen, policy_id resume-bae7e839d8ac",
+    "delegation": "root-to-child bounded delegation present and not revoked",
+    "child_action": "EVALUATED ALLOW/MATCH",
+    "child_receipt_digest_valid": true,
+    "semantic_match_receipt": "consumed; digest remains valid after consumption",
+    "semantic_mismatch_receipt": "DENY_PURPOSE/MISMATCH; digest valid",
+    "hard_deny_receipt": "DENY_HARD_RULE/NOT_EVALUATED; digest valid"
+  },
+  "completed_live_scenarios": [
+    "corrected-source deployment and source parity",
+    "principal admission and address-specific agent approval",
+    "agent self-registration after approval",
+    "policy creation and consumer authorization",
+    "semantic MATCH -> ALLOW",
+    "receipt readback and successful single-use consumption",
+    "receipt digest remains valid after consumed state update",
+    "replay attempt finalized as expected contract VM ERROR",
+    "semantic MISMATCH -> DENY_PURPOSE",
+    "deterministic hard denial -> DENY_HARD_RULE / NOT_EVALUATED",
+    "delegation amount widening finalized as expected contract VM ERROR",
+    "bounded root-to-child delegation",
+    "child registration through consumer fixture",
+    "child delegated action submit and evaluate -> ALLOW/MATCH"
+  ],
+  "not_completed_live_scenarios": [
+    "child receipt consumption and repeated-consumption rejection through consumer fixture",
+    "consumer child-error recovery and repeated completion",
+    "live aggregate quota enforcement",
+    "live freeze and policy revocation",
+    "live state-exhaustion reclamation regression cases"
+  ],
+  "local_validation": {
+    "pytest": "70 passed (50 Direct Mode contract tests, 20 resumable-harness helper tests)",
+    "compileall": "passed",
+    "release_config": "passed",
+    "contract_genvm_lint": "passed, 3 checks",
+    "contract_sdk_check": "passed with pinned .venv-release GenVM runner v0.2.16; 31 methods, 10 views, 21 writes",
+    "contract_schema": "passed, 31 methods",
+    "contract_typecheck": "passed",
+    "github_ci": "passed for b7ecf5d9a14f7e64391e3d921398763aa2c1ea34; Linux 69 tests and GenVM validations, Windows 19 helper tests and release config"
+  },
+  "limitations": [
+    "CALLER_ASSERTED evidence is supplied by the caller and is not externally authenticated by the contract.",
+    "The historical hashless nonce-441 child consume intent remains unknown.",
+    "Live consumer receipt consumption, consumer error recovery, and live resource-reclamation matrix remain unverified.",
+    "Explorer contract address page and deployment transaction page were reachable (HTTP 200); the tx page static HTML did not expose the contract address, so finality and source parity rely on independent CLI/RPC verification."
+  ],
+  "readiness": {
+    "status": "not_submission_ready",
+    "reason": "Canonical deployment and multiple live consensus scenarios are verified, but child consumer receipt consumption, remaining live lifecycle/resource-cap scenarios, and nonce-441 uncertainty remain unresolved."
+  }
+}
