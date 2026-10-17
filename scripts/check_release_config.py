@@ -44,14 +44,18 @@ def main() -> None:
     # Historical deployment evidence must remain bound to its frozen source,
     # even after a correction makes the current tree intentionally differ.
     evidence = json.loads((ROOT / "docs/evidence/studionet-canonical-release.json").read_text(encoding="utf-8"))
-    frozen_commit = evidence.get("deployment_source_commit")
+    source_identity = evidence.get("source_identity", {})
+    frozen_commit = source_identity.get("source_commit")
+    source_path = source_identity.get("contract_path")
+    if not isinstance(frozen_commit, str) or not isinstance(source_path, str):
+        raise SystemExit("canonical evidence is missing its frozen source identity")
     frozen_source = __import__("subprocess").check_output(
-        ["git", "show", f"{frozen_commit}:contracts/boundary_os.py"], cwd=ROOT
+        ["git", "show", f"{frozen_commit}:{source_path}"], cwd=ROOT
     )
     import hashlib
 
     frozen_hash = hashlib.sha256(frozen_source).hexdigest()
-    if frozen_hash != evidence.get("contract_source_sha256"):
+    if frozen_hash != source_identity.get("committed_file_sha256"):
         raise SystemExit("historical canonical deployment hash no longer matches its frozen commit")
     print("release configuration and historical source identity are consistent")
 
