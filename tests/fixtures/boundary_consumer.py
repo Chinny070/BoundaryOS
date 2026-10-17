@@ -26,9 +26,13 @@ class BoundaryOSInterface:
     class View:
         def can_consume_authorization(self, action_id: str, consumer_address: str) -> bool: ...
         def get_receipt(self, action_id: str) -> str: ...
+        def preview_action_id(self, policy_id: str, agent_address: str, nonce: int, action_json: str) -> str: ...
+        def get_action(self, action_id: str) -> str: ...
 
     class Write:
-        pass
+        def register_agent(self, principal_address: str) -> None: ...
+        def submit_action(self, policy_id: str, nonce: int, action_json: str) -> None: ...
+        def evaluate_action(self, action_id: str) -> None: ...
 
 
 class BoundaryConsumer(gl.Contract):
@@ -39,6 +43,35 @@ class BoundaryConsumer(gl.Contract):
 
     def __init__(self, boundary_address: str) -> None:
         self.boundary = Address(boundary_address)
+
+    @gl.public.write
+    def register_as_agent(self, principal_address: str) -> None:
+        BoundaryOSInterface(self.boundary).emit(on="finalized").register_agent(principal_address)
+
+    @gl.public.write
+    def submit_delegated_action(
+        self, policy_id: str, nonce: int, expected_action_id: str, action_json: str
+    ) -> None:
+        boundary = BoundaryOSInterface(self.boundary)
+        expected = boundary.view().preview_action_id(
+            policy_id, str(gl.message.contract_address), nonce, action_json
+        )
+        if expected != expected_action_id:
+            raise gl.vm.UserError("delegated action ID does not match BoundaryOS preview")
+        boundary.emit(on="finalized").submit_action(policy_id, nonce, action_json)
+
+    @gl.public.write
+    def evaluate_delegated_action(self, action_id: str) -> None:
+        boundary = BoundaryOSInterface(self.boundary)
+        action_raw = boundary.view().get_action(action_id)
+        if not action_raw:
+            raise gl.vm.UserError("delegated action is absent")
+        action = json.loads(action_raw)
+        if action.get("agent", "").lower() != str(gl.message.contract_address).lower():
+            raise gl.vm.UserError("delegated action belongs to another agent")
+        if action.get("state") != "PENDING":
+            raise gl.vm.UserError("delegated action is not pending")
+        boundary.emit(on="finalized").evaluate_action(action_id)
 
     @gl.public.write
     def request_protected_operation(self, action_id: str, action_digest: str) -> None:

@@ -44,6 +44,10 @@ jobs:
       - run: genvm-lint check contracts/boundary_os.py --json
       - run: genvm-lint schema contracts/boundary_os.py
       - run: genvm-lint typecheck contracts/boundary_os.py
+      - run: genvm-lint lint tests/fixtures/boundary_consumer.py
+      - run: genvm-lint check tests/fixtures/boundary_consumer.py --json
+      - run: genvm-lint schema tests/fixtures/boundary_consumer.py
+      - run: genvm-lint typecheck tests/fixtures/boundary_consumer.py
       - run: python scripts/check_release_config.py
 
   windows:

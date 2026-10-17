@@ -2023,7 +2023,10 @@ def run_live_suite(
         expected_fit="NOT_EVALUATED",
     )
 
-    _verify_delegation_boundary(verifier, policy_id, account, accounts, policy, max_polls)
+    _verify_delegation_boundary(
+        verifier, policy_id, account, accounts, policy, max_polls,
+        child_contract_address=consumer_contract_address,
+    )
     if consumer_contract_address:
         _verify_consumer_composability(
             verifier, policy_id, account, consumer_contract_address, policy, max_polls
@@ -2180,6 +2183,34 @@ def _prepare_action_only(
     return action_id
 
 
+def _triggered_child_id(
+    verifier: StudionetVerifier, step: str, parent_tx_id: str
+) -> str:
+    children: list[Any] = []
+    delay = 0.5
+    for attempt in range(RETRY_LIMIT):
+        try:
+            children = verifier.client.get_triggered_transaction_ids(parent_tx_id)
+        except Exception as exc:
+            if attempt + 1 == RETRY_LIMIT:
+                raise RpcFailure(
+                    f"could not retrieve child transaction IDs for {step} ({type(exc).__name__})"
+                ) from exc
+        if children:
+            break
+        if attempt + 1 < RETRY_LIMIT:
+            time.sleep(delay)
+            delay = min(delay * 2, 4.0)
+    if len(children) != 1:
+        raise VerificationError(f"{step} emitted {len(children)} child transactions; expected exactly one")
+    child_id = str(children[0])
+    verifier.checkpoint.data.setdefault("observations", {}).setdefault(
+        "consumer_child_transactions", {}
+    )[step] = {"parent_tx_id": parent_tx_id, "child_tx_id": child_id, "observed_at": _now()}
+    verifier.checkpoint.save()
+    return child_id
+
+
 def _verify_consumer_composability(
     verifier: StudionetVerifier,
     policy_id: str,
@@ -2254,31 +2285,6 @@ def _verify_consumer_composability(
     if verifier.read("can_consume_authorization", [action_id, consumer_contract]) is not True:
         raise VerificationError("consumer contract was not authorized to consume the source receipt")
 
-    def triggered_child(step: str, parent_tx_id: str) -> str:
-        children: list[Any] = []
-        delay = 0.5
-        for attempt in range(RETRY_LIMIT):
-            try:
-                children = verifier.client.get_triggered_transaction_ids(parent_tx_id)
-            except Exception as exc:
-                if attempt + 1 == RETRY_LIMIT:
-                    raise RpcFailure(
-                        f"could not retrieve child transaction IDs for {step} ({type(exc).__name__})"
-                    ) from exc
-            if children:
-                break
-            if attempt + 1 < RETRY_LIMIT:
-                time.sleep(delay)
-                delay = min(delay * 2, 4.0)
-        if len(children) != 1:
-            raise VerificationError(f"{step} emitted {len(children)} child transactions; expected exactly one")
-        child_id = str(children[0])
-        verifier.checkpoint.data.setdefault("observations", {}).setdefault(
-            "consumer_child_transactions", {}
-        )[step] = {"parent_tx_id": parent_tx_id, "child_tx_id": child_id, "observed_at": _now()}
-        verifier.checkpoint.save()
-        return child_id
-
     request_tx = verifier.write_once(
         "consumer_fixture.request_with_test_child_error",
         "request_protected_operation_with_test_child_error",
@@ -2287,7 +2293,7 @@ def _verify_consumer_composability(
         max_polls=max_polls,
         contract_address=consumer_contract,
     )
-    failed_child_id = triggered_child("intentional_child_error", request_tx["tx_id"])
+    failed_child_id = _triggered_child_id(verifier, "intentional_child_error", request_tx["tx_id"])
     failed_child = verifier.poll_finalized(failed_child_id, max_polls=max_polls, expected_execution_error=True)
     if failed_child.get("execution_result") != "ERROR":
         raise VerificationError("test child transaction did not finalize with its expected contract error")
@@ -2302,7 +2308,7 @@ def _verify_consumer_composability(
         max_polls=max_polls,
         contract_address=consumer_contract,
     )
-    retry_child_id = triggered_child("recovered_child", retry_tx["tx_id"])
+    retry_child_id = _triggered_child_id(verifier, "recovered_child", retry_tx["tx_id"])
     if retry_child_id == failed_child_id:
         raise VerificationError("retry unexpectedly reused the prior child transaction ID")
     recovered_child = verifier.poll_finalized(retry_child_id, max_polls=max_polls)
@@ -2353,40 +2359,63 @@ def _verify_delegation_boundary(
     accounts: list[Any],
     policy: dict[str, Any],
     max_polls: int,
+    child_contract_address: str | None = None,
 ) -> None:
     """Prove a widening request fails, then run delegated authorization end to end."""
     policy_instance = int(verifier.read("get_policy_instance", [policy_id]))
     if policy_instance <= 0:
         raise VerificationError("delegation test cannot bind to an unknown policy instance")
     child = None
-    for candidate in accounts:
-        if candidate.address.lower() == parent.address.lower():
-            continue
-        state = _as_json(verifier.read("get_agent", [candidate.address]))
-        if isinstance(state, dict) and not state.get("registered"):
-            child = candidate
-            break
-    if child is None:
-        raise VerificationError("no configured, unregistered secondary signer is available for delegation testing")
-    child_state = _as_json(verifier.read("get_agent", [child.address]))
+    if child_contract_address:
+        child_address = to_checksum_address(child_contract_address)
+    else:
+        for candidate in accounts:
+            if candidate.address.lower() == parent.address.lower():
+                continue
+            state = _as_json(verifier.read("get_agent", [candidate.address]))
+            if isinstance(state, dict) and not state.get("registered"):
+                child = candidate
+                break
+        if child is None:
+            raise VerificationError("no configured, unregistered secondary signer is available for delegation testing")
+        child_address = child.address
+    child_state = _as_json(verifier.read("get_agent", [child_address]))
     if not child_state.get("registered"):
         verifier.write_once(
             "delegation.approve_child_registration",
             "approve_agent_registration",
-            [child.address],
+            [child_address],
             max_polls=max_polls,
             signer=parent,
         )
-        verifier.write_once(
-            "delegation.register_child",
-            "register_agent",
-            [parent.address],
-            signer=child,
-            max_polls=max_polls,
-        )
-        child_state = _as_json(verifier.read("get_agent", [child.address]))
+        if child is None:
+            register_tx = verifier.write_once(
+                "delegation.register_child",
+                "register_as_agent",
+                [parent.address],
+                signer=parent,
+                max_polls=max_polls,
+                contract_address=child_address,
+            )
+            registration_child_id = _triggered_child_id(
+                verifier, "delegation.register_child", register_tx["tx_id"]
+            )
+            registration_child = verifier.poll_finalized(
+                registration_child_id, max_polls=max_polls
+            )
+            if registration_child.get("execution_result") != "SUCCESS":
+                raise VerificationError("consumer contract's agent registration child did not succeed")
+        else:
+            verifier.write_once(
+                "delegation.register_child",
+                "register_agent",
+                [parent.address],
+                signer=child,
+                max_polls=max_polls,
+            )
+        child_state = _as_json(verifier.read("get_agent", [child_address]))
     if child_state.get("policy_id") not in (None, "", policy_id):
-        raise VerificationError("secondary signer is already assigned to a different policy")
+        raise VerificationError("delegated child is already assigned to a different policy")
     now = int(time.time())
     expires_at = now + 300
     widened_scope = {
@@ -2397,23 +2426,31 @@ def _verify_delegation_boundary(
         "purpose": policy["purpose"],
     }
     scope_json = json.dumps(widened_scope, sort_keys=True, separators=(",", ":"))
-    verifier.write_once(
-        "delegation.reject_amount_widening",
-        "delegate_authority",
-        [policy_id, parent.address, child.address, scope_json, expires_at],
-        max_polls=max_polls,
-        expected_execution_error=True,
+    delegation_state = _as_json(verifier.read("get_delegation", [child_address]))
+    delegation_is_current = (
+        isinstance(delegation_state, dict)
+        and delegation_state.get("revoked") is not True
+        and delegation_state.get("parent", "").lower() == parent.address.lower()
+        and int(delegation_state.get("expires_at", 0)) > now
     )
-    child_after = _as_json(verifier.read("get_agent", [child.address]))
-    if child_after.get("policy_id"):
-        raise VerificationError("rejected amount-widening delegation unexpectedly assigned a child policy")
-    verifier.checkpoint.data["observations"]["delegation_boundary"] = {
-        "child_address": child.address,
-        "requested_amount": widened_scope["max_amount"],
-        "parent_limit": policy["max_amount"],
-        "execution_rejected": True,
-        "observed_at": _now(),
-    }
+    if not delegation_is_current:
+        verifier.write_once(
+            "delegation.reject_amount_widening",
+            "delegate_authority",
+            [policy_id, parent.address, child_address, scope_json, expires_at],
+            max_polls=max_polls,
+            expected_execution_error=True,
+        )
+        child_after = _as_json(verifier.read("get_agent", [child_address]))
+        if child_after.get("policy_id"):
+            raise VerificationError("rejected amount-widening delegation unexpectedly assigned a child policy")
+        verifier.checkpoint.data["observations"]["delegation_boundary"] = {
+            "child_address": child_address,
+            "requested_amount": widened_scope["max_amount"],
+            "parent_limit": policy["max_amount"],
+            "execution_rejected": True,
+            "observed_at": _now(),
+        }
 
     scope_cap = min(int(policy["max_amount"]), 100)
     scope_expires_at = now + 3600
@@ -2425,16 +2462,16 @@ def _verify_delegation_boundary(
         "purpose": policy["purpose"],
     }
     child_scope_json = json.dumps(child_scope, sort_keys=True, separators=(",", ":"))
-    delegation_state = _as_json(verifier.read("get_delegation", [child.address]))
+    delegation_state = _as_json(verifier.read("get_delegation", [child_address]))
     if not isinstance(delegation_state, dict) or delegation_state.get("parent", "").lower() != parent.address.lower():
         verifier.write_once(
             "delegation.accept_bounded_child",
             "delegate_authority",
-            [policy_id, parent.address, child.address, child_scope_json, scope_expires_at],
+            [policy_id, parent.address, child_address, child_scope_json, scope_expires_at],
             max_polls=max_polls,
             signer=parent,
         )
-        delegation_state = _as_json(verifier.read("get_delegation", [child.address]))
+        delegation_state = _as_json(verifier.read("get_delegation", [child_address]))
     if (
         not isinstance(delegation_state, dict)
         or delegation_state.get("revoked") is True
@@ -2445,7 +2482,7 @@ def _verify_delegation_boundary(
     verifier.write_once(
         "delegation.authorize_child_consumer",
         "authorize_consumer",
-        [policy_id, child.address],
+        [policy_id, child_address],
         max_polls=max_polls,
         signer=parent,
     )
@@ -2459,7 +2496,7 @@ def _verify_delegation_boundary(
     child_action_json = json.dumps(child_action, sort_keys=True, separators=(",", ":"))
     child_action_digest = hashlib.sha256(child_action_json.encode("utf-8")).hexdigest()
     child_action_id = derive_action_id(
-        policy_id, child.address, 1, child_action_json, policy_instance
+        policy_id, child_address, 1, child_action_json, policy_instance
     )
     child_record = verifier.checkpoint.data.setdefault("scenarios", {}).get("delegation_child_lifecycle")
     if child_record and (
@@ -2478,24 +2515,56 @@ def _verify_delegation_boundary(
         verifier.checkpoint.save()
     child_action_state = _as_json(verifier.read("get_action", [child_action_id]))
     if not child_action_state:
-        verifier.write_once(
-            "delegation.child_submit",
-            "submit_action",
-            [policy_id, 1, child_action_json],
-            signer=child,
-            max_polls=max_polls,
-        )
+        if child is None:
+            child_submit_tx = verifier.write_once(
+                "delegation.child_submit",
+                "submit_delegated_action",
+                [policy_id, 1, child_action_id, child_action_json],
+                signer=parent,
+                max_polls=max_polls,
+                contract_address=child_address,
+            )
+            submit_child_id = _triggered_child_id(
+                verifier, "delegation.child_submit", child_submit_tx["tx_id"]
+            )
+            submit_child = verifier.poll_finalized(submit_child_id, max_polls=max_polls)
+            if submit_child.get("execution_result") != "SUCCESS":
+                raise VerificationError("delegated consumer child action submission did not succeed")
+        else:
+            verifier.write_once(
+                "delegation.child_submit",
+                "submit_action",
+                [policy_id, 1, child_action_json],
+                signer=child,
+                max_polls=max_polls,
+            )
         child_action_state = _as_json(verifier.read("get_action", [child_action_id]))
     if not isinstance(child_action_state, dict):
         raise VerificationError("delegated child action was not present at finalized state")
     if child_action_state.get("state") == "PENDING":
-        verifier.write_once(
-            "delegation.child_evaluate",
-            "evaluate_action",
-            [child_action_id],
-            signer=child,
-            max_polls=max_polls,
-        )
+        if child is None:
+            evaluate_tx = verifier.write_once(
+                "delegation.child_evaluate",
+                "evaluate_delegated_action",
+                [child_action_id],
+                signer=parent,
+                max_polls=max_polls,
+                contract_address=child_address,
+            )
+            evaluate_child_id = _triggered_child_id(
+                verifier, "delegation.child_evaluate", evaluate_tx["tx_id"]
+            )
+            evaluate_child = verifier.poll_finalized(evaluate_child_id, max_polls=max_polls)
+            if evaluate_child.get("execution_result") != "SUCCESS":
+                raise VerificationError("delegated consumer child evaluation did not succeed")
+        else:
+            verifier.write_once(
+                "delegation.child_evaluate",
+                "evaluate_action",
+                [child_action_id],
+                signer=child,
+                max_polls=max_polls,
+            )
     child_receipt = _as_json(verifier.read("get_receipt", [child_action_id]))
     if (
         not isinstance(child_receipt, dict)
@@ -2504,29 +2573,56 @@ def _verify_delegation_boundary(
         or child_receipt.get("action_digest") != hashlib.sha256(_canonical(child_action)).hexdigest()
     ):
         raise VerificationError("delegated child did not receive a matching finalized ALLOW receipt")
-    if verifier.read("can_consume_authorization", [child_action_id, child.address]) is not True:
+    if verifier.read("can_consume_authorization", [child_action_id, child_address]) is not True:
         raise VerificationError("delegated child receipt was not consumable before the consume transaction")
-    verifier.write_once(
-        "delegation.child_consume",
-        "consume_authorization",
-        [child_action_id, child_receipt["action_digest"]],
-        signer=child,
-        max_polls=max_polls,
-    )
+    if child is None:
+        consume_parent_tx = verifier.write_once(
+            "delegation.child_consume",
+            "request_protected_operation",
+            [child_action_id, child_receipt["action_digest"]],
+            signer=parent,
+            max_polls=max_polls,
+            contract_address=child_address,
+        )
+        consume_child_id = _triggered_child_id(
+            verifier, "delegation.child_consume", consume_parent_tx["tx_id"]
+        )
+        consume_child = verifier.poll_finalized(consume_child_id, max_polls=max_polls)
+        if consume_child.get("execution_result") != "SUCCESS":
+            raise VerificationError("delegated consumer receipt-consumption child did not succeed")
+        verifier.write_once(
+            "delegation.child_complete",
+            "complete_protected_operation",
+            [child_action_id],
+            signer=parent,
+            max_polls=max_polls,
+            contract_address=child_address,
+        )
+    else:
+        verifier.write_once(
+            "delegation.child_consume",
+            "consume_authorization",
+            [child_action_id, child_receipt["action_digest"]],
+            signer=child,
+            max_polls=max_polls,
+        )
     consumed_child_receipt = _as_json(verifier.read("get_receipt", [child_action_id]))
     if (
         not isinstance(consumed_child_receipt, dict)
         or consumed_child_receipt.get("consumed") is not True
-        or consumed_child_receipt.get("consumed_by", "").lower() != child.address.lower()
+        or consumed_child_receipt.get("consumed_by", "").lower() != child_address.lower()
         or consumed_child_receipt.get("receipt_digest")
         != hashlib.sha256(
             _canonical({key: value for key, value in consumed_child_receipt.items() if key != "receipt_digest"})
         ).hexdigest()
-        or verifier.read("can_consume_authorization", [child_action_id, child.address]) is not False
+        or verifier.read("can_consume_authorization", [child_action_id, child_address]) is not False
     ):
         raise VerificationError("delegated child consumption did not read back as finalized and one-time")
+    if child is None and verifier.read("operation_completed", [child_action_id], contract_address=child_address) is not True:
+        raise VerificationError("delegated consumer did not complete after finalized receipt consumption")
     verifier.checkpoint.data["observations"]["delegation_happy_path"] = {
-        "child_address": child.address,
+        "child_address": child_address,
+        "child_type": "test_consumer_contract" if child is None else "eoa",
         "action_id": child_action_id,
         "decision": child_receipt.get("decision"),
         "semantic_fit": child_receipt.get("semantic_fit"),
