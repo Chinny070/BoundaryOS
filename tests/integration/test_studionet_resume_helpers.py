@@ -23,6 +23,7 @@ from studionet_resume import (
     _resolve_cli_entry,
     verify_legacy_cli_encoding,
     reconcile_checkpoint_before_writes,
+    guard_cross_checkpoint_nonce_intents,
 )
 
 
@@ -185,6 +186,57 @@ def test_live_checkpoint_preflight_blocks_unresolved_broadcast(tmp_path, monkeyp
         assert calls == [("ambiguous", 3)]
     finally:
         checkpoint.close()
+
+
+def test_cross_checkpoint_nonce_guard_requires_authoritative_same_nonce_finality(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / ".boundaryos"
+    root.mkdir()
+    signer = "0x" + "a" * 40
+    current = Checkpoint(root / "current.json", "0xc", signer, "source")
+    try:
+        ambiguous_path = root / "earlier.json"
+        ambiguous_path.write_text(json.dumps({
+            "schema_version": 1,
+            "contract_address": "0xold-contract",
+            "signer_address": signer,
+            "steps": {
+                "old-write": {
+                    "phase": "broadcast_unknown",
+                    "signer_address": signer,
+                    "reserved_nonce": 42,
+                }
+            },
+            "transactions": {},
+        }), encoding="utf-8")
+        assert guard_cross_checkpoint_nonce_intents(
+            current, signer, latest_nonce=43, target_contract="0xother-contract"
+        ) == []
+        with pytest.raises(VerificationError, match="no different finalized transaction"):
+            guard_cross_checkpoint_nonce_intents(
+                current, signer, latest_nonce=43, target_contract="0xold-contract"
+            )
+
+        final_tx = "0x" + "f" * 64
+        current.data["transactions"][final_tx] = {
+            "status": "FINALIZED", "sender": signer, "nonce": 42,
+            "consensus_outcome": "MAJORITY_AGREE", "execution_result": "SUCCESS",
+        }
+        current.save()
+        reconciled = guard_cross_checkpoint_nonce_intents(
+            current, signer, latest_nonce=43, target_contract="0xold-contract"
+        )
+        assert reconciled == [{
+            "checkpoint": ambiguous_path.relative_to(tmp_path).as_posix(),
+            "step": "old-write", "nonce": 42, "tx_id": final_tx,
+        }]
+        saved = json.loads(ambiguous_path.read_text(encoding="utf-8"))
+        old = saved["steps"]["old-write"]
+        assert old["phase"] == "nonce_consumed_by_different_finalized_tx"
+        assert old["broadcast_disposition"].startswith("unknown;")
+        assert old["superseded_by_tx_id"] == final_tx
+    finally:
+        current.close()
 
 
 def test_cli_signer_reads_use_typed_sdk_at_finalized_state(tmp_path, monkeypatch):

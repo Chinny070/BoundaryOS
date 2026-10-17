@@ -6,8 +6,36 @@
   "candidate_commit_note": "This record is committed in the candidate commit; source identity is recorded by file hash to avoid a self-referential commit hash.",
   "candidate_contract_source": {
     "path": "contracts/boundary_os.py",
+    "source_commit": "6d0d9ddf5b916fa4fc27613e48718021a1cc97f9",
     "sha256": "77c07245b23c77cf7d6a286df92e4a3f99d0ffc89fefbe603e87c979ef5dfbc9",
-    "deployed": false
+    "deployed": true,
+    "address": "0x7d59607d8E42Cf20e6c6988DdfFe17514D11B4FB",
+    "deployment_tx_id": "0x275ef9638bbaa495c20d9662e91780de30ab41d886b4374e7379fe8aafc63518",
+    "deployment_status": "FINALIZED",
+    "consensus_outcome": "MAJORITY_AGREE",
+    "execution_result": "SUCCESS",
+    "signer_nonce": 2682,
+    "rounds_observed": 1,
+    "validator_votes": {
+      "0x3Ba59570464dB1FD3Be904c0878aCD5a29f95ef7": "idle",
+      "0x5079AB517D09468Ff82D431EB58998F0455BDE60": "agree",
+      "0xF3d0d43ae030B50283C9D8fAD8805B10289C415f": "agree",
+      "0xa07a72Abe32D91E13900dEd90B159F8be6FDDBC2": "agree",
+      "0xcf13db7B4908b9A486ff255A7A5B151FcFec8b8b": "idle"
+    },
+    "deployed_source_retrieval": {
+      "method": "official GenLayer CLI 0.39.1 genlayer code",
+      "explorer_address_page_http_status": 200,
+      "explorer_deployment_tx_page_http_status": 200,
+      "explorer_address_page_contains_contract_address": true,
+      "explorer_address_page_contains_deployment_tx_hash": true,
+      "explorer_transaction_page_contains_tx_hash": true,
+      "explorer_transaction_page_contains_contract_address": false,
+      "normalized_body_exact_match": true,
+      "deployed_body_sha256": "05a1cde5cfe1b4c0a741791d7d98b2a53f4289bbf79beb9e8acff2f70a54ea5d",
+      "repository_file_sha256": "77c07245b23c77cf7d6a286df92e4a3f99d0ffc89fefbe603e87c979ef5dfbc9",
+      "note": "Explorer pages returned HTTP 200. The deployment transaction page's static HTML exposed the transaction hash but not contract-address mapping; finality and source parity were verified through RPC and CLI retrieval."
+    }
   },
   "last_verified_deployment": {
     "network": "GenLayer Studionet",
@@ -16,7 +44,7 @@
     "source_commit": "df980984f752d2cf367743d4f0a458e8af5712e0",
     "source_sha256": "86720777484aea493439d960cb741639b2320f00d81bd790b3dc14ee547f0937",
     "candidate_source_parity": false,
-    "note": "This is the last verified deployment for the previous source. No candidate deployment or live write was attempted."
+    "note": "Historical, fully verified deployment for its frozen source. It is not source-identical to the resource-lifecycle candidate."
   },
   "changes_under_test": [
     "Owner-controlled admission bounds principal identities to 16.",
@@ -35,19 +63,38 @@
     },
     "resumable_harness_tests": {
       "command": "python -m pytest tests/integration/test_studionet_resume_helpers.py -q --tb=short",
-      "passed": 18,
+      "passed": 19,
       "failed": 0,
       "status": "passed"
     },
     "direct_mode": {
       "command": ".venv-release\\Scripts\\python.exe -m pytest tests/direct/ tests/integration/test_studionet_resume_helpers.py -q --tb=short",
       "direct_contract_tests": 49,
+      "helper_tests_passed": 19,
       "failed_before_contract_execution": 49,
       "error": "PermissionError: [WinError 32] The process cannot access the file because it is being used by another process",
       "failure_site": "gltest.direct.loader._inject_message_to_fd0 unlinking a locked temporary file",
       "status": "blocked_by_windows_runner"
     },
     "github_actions_runs": [
+      {
+        "run_id": 39007991262,
+        "commit": "6d0d9ddf5b916fa4fc27613e48718021a1cc97f9",
+        "url": "https://github.com/Chinny070/BoundaryOS/actions/runs/39007991262",
+        "linux_result": {
+          "direct_and_helpers": "67 passed in 39.13s",
+          "genvm_lint": "passed, 3 checks",
+          "sdk_validation": "passed, 29 methods (10 views, 19 writes)",
+          "typecheck": "passed",
+          "release_configuration": "passed",
+          "status": "passed; predates the cross-checkpoint harness guard"
+        },
+        "windows_result": {
+          "helper_tests": "18 passed in 0.12s",
+          "release_configuration": "passed",
+          "status": "passed; predates the cross-checkpoint harness guard"
+        }
+      },
       {
         "run_id": 39007250085,
         "commit": "11e2e48fe68c4d20b1a32c5c45e158f28e253f2a",
@@ -127,26 +174,103 @@
     "release_configuration": "passed"
   },
   "live_verification": {
-    "semantic_match": "not_run_for_candidate",
-    "semantic_mismatch": "not_run_for_candidate",
-    "receipt_creation_and_consumption": "not_run_for_candidate",
-    "replay_rejection": "not_run_for_candidate",
-    "policy_revocation_and_agent_freeze": "not_run_for_candidate",
-    "delegated_child_allow_and_consumption": "not_run_for_candidate",
-    "consumer_child_error_recovery_and_repeated_completion": "not_run_for_candidate",
-    "aggregate_quota": "not_run_for_candidate",
-    "finalized_state_readback": "not_run_for_candidate",
-    "deployed_source_identity": "not_run_for_candidate",
-    "reason": "The execution session has CODEX_SANDBOX_NETWORK_DISABLED=1. No live transaction was submitted, and no live success is claimed."
+    "network": "Studionet",
+    "chain_id": 61999,
+    "cli": "GenLayer CLI 0.39.1; named-wallet CLI signer; official Python SDK typed reads at LATEST_FINAL",
+    "candidate_deployment": {
+      "tx_id": "0x275ef9638bbaa495c20d9662e91780de30ab41d886b4374e7379fe8aafc63518",
+      "address": "0x7d59607d8E42Cf20e6c6988DdfFe17514D11B4FB",
+      "status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "vm": "SUCCESS",
+      "source_parity": "verified by official CLI retrieval and exact normalized body comparison"
+    },
+    "consumer_fixture": {
+      "address": "0x4439B1c1Ab602ec780F6E6139ffb7868B3c8bfa6",
+      "deployment_tx_id": "0x525a11eee7fe9c36865de3f33617ebf4cae55b8d204d3ff3bba44c7a9096116d",
+      "deployment_status": "FINALIZED",
+      "consensus": "MAJORITY_AGREE",
+      "vm": "SUCCESS",
+      "source_sha256": "23df51cdcee67678e8914369b9b03e577d1851a8fedcabbfb5261909510f18a1",
+      "composability_test": "not_run"
+    },
+    "finalized_setup": [
+      {
+        "method": "admit_principal",
+        "tx_id": "0x6d4486c01a0cd50dadd0f02565c8ea3252e535aec53f813c050db77fbffb0dcb",
+        "nonce": 2683,
+        "status": "FINALIZED",
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS"
+      },
+      {
+        "method": "register_agent",
+        "tx_id": "0x76bb11216f081fb95411578d3ca47b9fe453cafd30abc1039040c4d0dae9fabc",
+        "nonce": 2684,
+        "status": "FINALIZED",
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS"
+      },
+      {
+        "method": "create_policy",
+        "tx_id": "0xead0a41df709a18e92babfe762c2e95f4ac2d618685c7255d1d304ef4d8bae7d",
+        "nonce": 2685,
+        "status": "FINALIZED",
+        "consensus": "MAJORITY_AGREE",
+        "execution": "SUCCESS"
+      }
+    ],
+    "finalized_state_readback": {
+      "source": "official Python SDK TransactionHashVariant.LATEST_FINAL",
+      "principal_admitted": true,
+      "agent_registered": true,
+      "agent_frozen": false,
+      "agent_policy_id": "resume-a21840a30e6f",
+      "policy_instance": 1,
+      "policy_record_matches_fixture": true
+    },
+    "unresolved_transactions": [
+      {
+        "step": "first consumer fixture deployment attempt",
+        "signer": "my-studionet-wallet",
+        "reserved_nonce": 2683,
+        "transaction_hash": null,
+        "attempt_outcome": "CLI exited with code 1 and no captured hash; latest/pending were 2683 at that time",
+        "later_nonce_evidence": "Different admit_principal transaction finalized at nonce 2683. The original attempt was not accepted as that finalized transaction; whether it was broadcast and dropped/replaced remains unknown.",
+        "disposition": "no retry"
+      },
+      {
+        "step": "setup.authorize_consumer",
+        "signer": "my-studionet-wallet",
+        "reserved_nonce": 2686,
+        "transaction_hash": null,
+        "attempt_outcome": "SDK/CLI path raised VerificationError before a hash was captured; latest=2686 and pending=2686 at reconciliation",
+        "disposition": "unresolved; no further primary-signer writes submitted"
+      }
+    ],
+    "completed_acceptance_scenarios": [],
+    "blocked_scenarios": [
+      "semantic match and receipt lifecycle",
+      "semantic mismatch",
+      "deterministic hard denial",
+      "replay rejection",
+      "live state-exhaustion regressions",
+      "delegated child ALLOW and receipt consumption",
+      "consumer child-error recovery and repeated completion",
+      "policy revocation and agent freeze",
+      "aggregate quota"
+    ],
+    "cross_checkpoint_guard": "implemented and unit tested after discovering checkpoint-local nonce reconciliation; it blocks unresolved intents at the same signer nonce, reconciles only matching finalized identities, and isolates older unresolved intents from other contract addresses while preserving their history; not yet exercised by a post-change CI run",
+    "reason": "Primary signer nonce 2686 is tied to a hashless unresolved authorize_consumer attempt. The Studionet RPC does not implement txpool_content and exposes no supported transaction lookup by signer nonce, so the attempt cannot be authoritatively reconciled or safely retried."
   },
   "readiness": {
     "status": "not_submission_ready",
     "required_next_gates": [
-      "Run all Direct Mode contract and harness tests in a compatible runner.",
-      "Complete a live delegated-child ALLOW, evaluation, and receipt-consumption lifecycle.",
-      "Deploy the test-only consumer fixture and verify child error recovery and repeated completion behavior on a compatible environment.",
-      "Deploy the exact candidate source to Studionet only after local gates pass.",
-      "Verify FINALIZED transaction status, consensus outcome, deployed source hash/parity, and representative LATEST_FINAL state readbacks."
+      "Resolve or safely retire the primary signer's nonce-2686 ambiguity without replacing or duplicating an unknown transaction.",
+      "Run the candidate's semantic ALLOW/DENY, receipt consumption/replay, freeze/revocation, delegation happy path, and aggregate quota suite with independent finalized-state readbacks.",
+      "Run the resource-exhaustion regression scenarios live or state clearly why Studionet coverage is unavailable.",
+      "Exercise the deployed consumer fixture's child-error recovery and repeated completion behavior.",
+      "Rerun full Linux CI after the cross-checkpoint nonce guard and publish the committed evidence."
     ]
   },
   "evidence_provenance": "CALLER_ASSERTED"

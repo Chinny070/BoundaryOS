@@ -417,6 +417,138 @@ class Checkpoint:
                 self._owns_lock = False
 
 
+def guard_cross_checkpoint_nonce_intents(
+    checkpoint: Checkpoint,
+    signer_address: str,
+    latest_nonce: int,
+    target_contract: str | None = None,
+) -> list[dict[str, Any]]:
+    """Block writes when another checkpoint has an unresolved intent for this signer.
+
+    A same-nonce FINALIZED record in another checkpoint proves that a
+    hashless intent was not the transaction accepted by the chain. The prior
+    broadcast-versus-drop history remains unknown and is preserved in the
+    checkpoint; the occupied nonce itself is safe to move past.
+    """
+    root = Path(".boundaryos")
+    current_path = checkpoint.path.resolve()
+    if not root.exists():
+        return []
+
+    finalized_by_nonce: dict[int, tuple[str, dict[str, Any]]] = {}
+    files: list[tuple[Path, dict[str, Any]]] = []
+    for path in root.rglob("*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict) or data.get("schema_version") != 1:
+            continue
+        files.append((path, data))
+        txs = data.get("transactions", {})
+        if not isinstance(txs, dict):
+            continue
+        for tx_id, tx in txs.items():
+            if not isinstance(tx, dict) or tx.get("status") != "FINALIZED":
+                continue
+            if str(tx.get("sender", "")).lower() != signer_address.lower():
+                continue
+            nonce = tx.get("nonce")
+            if nonce is None:
+                continue
+            try:
+                nonce_value = int(nonce)
+            except (TypeError, ValueError):
+                continue
+            prior = finalized_by_nonce.get(nonce_value)
+            if prior and prior[0].lower() != str(tx_id).lower():
+                raise UnresolvedBroadcast(
+                    f"checkpoints contain conflicting FINALIZED transaction hashes for signer nonce {nonce_value}"
+                )
+            finalized_by_nonce[nonce_value] = (str(tx_id), tx)
+
+    reconciled: list[dict[str, Any]] = []
+    unresolved_phases = {
+        "intent_saved", "broadcast_unknown", "outer_broadcast", "broadcast",
+        "broadcast_recovered", "nonce_conflict",
+    }
+    for path, data in files:
+        if path.resolve() == current_path:
+            continue
+        if str(data.get("signer_address", "")).lower() != signer_address.lower():
+            continue
+        changed = False
+        steps = data.get("steps", {})
+        if not isinstance(steps, dict):
+            continue
+        for step_name, item in steps.items():
+            if not isinstance(item, dict) or item.get("phase") not in unresolved_phases:
+                continue
+            if str(item.get("signer_address", data.get("signer_address", ""))).lower() != signer_address.lower():
+                continue
+            nonce = item.get("reserved_nonce")
+            try:
+                nonce = int(nonce)
+            except (TypeError, ValueError):
+                raise UnresolvedBroadcast(
+                    f"checkpoint {path.name} has unresolved step {step_name} without a valid reserved nonce"
+                )
+            matching = finalized_by_nonce.get(nonce)
+            if matching is None and latest_nonce > nonce and target_contract:
+                prior_contract = str(item.get("contract_address", data.get("contract_address", "")))
+                if prior_contract and prior_contract.lower() != target_contract.lower():
+                    # The signer nonce has advanced and this older intent is
+                    # bound to a different contract. Preserve its uncertain
+                    # history while allowing isolated verification on the
+                    # requested target.
+                    continue
+            if matching is None or latest_nonce <= nonce:
+                raise UnresolvedBroadcast(
+                    f"checkpoint {path.name} has unresolved step {step_name} at signer nonce {nonce}; "
+                    "no different finalized transaction proves that nonce was consumed; refusing a write"
+                )
+            tx_id, tx = matching
+            prior_tx_id = item.get("tx_id") or item.get("outer_tx_hash")
+            if prior_tx_id and str(prior_tx_id).lower() != tx_id.lower():
+                raise UnresolvedBroadcast(
+                    f"checkpoint {path.name} has transaction identity {prior_tx_id} for nonce {nonce}; "
+                    f"a different hash {tx_id} finalized at that nonce; reconcile the saved transaction first"
+                )
+            if prior_tx_id and str(prior_tx_id).lower() == tx_id.lower():
+                item.update({
+                    "phase": "reconciled_finalized",
+                    "tx_id": tx_id,
+                    "status": "FINALIZED",
+                    "consensus_outcome": tx.get("consensus_outcome"),
+                    "execution_result": tx.get("execution_result"),
+                    "reconciled_at": _now(),
+                })
+            else:
+                item.update({
+                    "phase": "nonce_consumed_by_different_finalized_tx",
+                    "broadcast_disposition": "unknown; original transaction was not finalized under its missing identity",
+                    "superseded_by_tx_id": tx_id,
+                    "superseded_by_status": "FINALIZED",
+                    "reconciled_at": _now(),
+                })
+            changed = True
+            relative_path = path.resolve().relative_to(Path.cwd().resolve()).as_posix()
+            reconciled.append({"checkpoint": relative_path, "step": step_name, "nonce": nonce, "tx_id": tx_id})
+        if changed:
+            payload = json.dumps(data, sort_keys=True, indent=2, ensure_ascii=True) + "\n"
+            handle, temp_name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=path.parent)
+            try:
+                with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as temp:
+                    temp.write(payload)
+                    temp.flush()
+                    os.fsync(temp.fileno())
+                os.replace(temp_name, path)
+            finally:
+                if os.path.exists(temp_name):
+                    os.unlink(temp_name)
+    return reconciled
+
+
 class StudionetVerifier:
     def __init__(
         self,
@@ -715,6 +847,15 @@ class StudionetVerifier:
         pending = int(self.rpc("eth_getTransactionCount", [signer.address, "pending"]), 16)
         if latest != pending:
             raise UnresolvedBroadcast(f"signer has pending transactions (latest={latest}, pending={pending}); refusing a new write")
+        reconciled_intents = guard_cross_checkpoint_nonce_intents(
+            self.checkpoint, signer.address, latest, target_contract=expected_contract
+        )
+        if reconciled_intents:
+            self.checkpoint.data.setdefault("cross_checkpoint_nonce_reconciliations", []).extend(
+                reconciled_intents
+            )
+            self.checkpoint.save()
+            self.emit("cross_checkpoint_nonce_reconciled", intents=reconciled_intents)
         intent = {
             "phase": "intent_saved",
             "method": method,
@@ -967,6 +1108,15 @@ class StudionetVerifier:
             raise UnresolvedBroadcast(
                 f"deployment signer has pending transactions (latest={latest}, pending={pending}); refusing to deploy"
             )
+        reconciled_intents = guard_cross_checkpoint_nonce_intents(
+            self.checkpoint, self.account.address, latest
+        )
+        if reconciled_intents:
+            self.checkpoint.data.setdefault("cross_checkpoint_nonce_reconciliations", []).extend(
+                reconciled_intents
+            )
+            self.checkpoint.save()
+            self.emit("cross_checkpoint_nonce_reconciled", intents=reconciled_intents)
         item = {
             "phase": "intent_saved",
             "method": "deployContract",
@@ -1419,7 +1569,15 @@ def main(argv: list[str] | None = None) -> int:
         actual_chain = int(verifier.rpc("eth_chainId", []), 16)
         if actual_chain != CHAIN_ID:
             raise VerificationError(f"RPC returned chain ID {actual_chain}, expected {CHAIN_ID}")
-        typed_read = verify_existing_contract_read(verifier, account.address)
+        # Deployment does not depend on the selected signer being registered
+        # in the inspection target. Keep this application-state preflight for
+        # inspections and live suites, but do not block a permissionless
+        # fixture deployment because its deployer is unrelated to that target.
+        typed_read = (
+            {"skipped": "deployment-only command; no existing application state is required"}
+            if deployment_source is not None
+            else verify_existing_contract_read(verifier, account.address)
+        )
         verifier.checkpoint.data["chain_id_observed"] = actual_chain
         verifier.checkpoint.data["signer_nonce_latest"] = int(verifier.rpc("eth_getTransactionCount", [account.address, "latest"]), 16)
         verifier.checkpoint.data["signer_nonce_pending"] = int(verifier.rpc("eth_getTransactionCount", [account.address, "pending"]), 16)
@@ -1431,7 +1589,7 @@ def main(argv: list[str] | None = None) -> int:
             cli=cli_details,
             signer_accounts=[{"name": getattr(item, "name", ""), "address": item.address} for item in accounts]
             if options.signer_backend == "cli" else [],
-            existing_contract_read={"registered": typed_read["registered"], "frozen": typed_read["frozen"]},
+            existing_contract_read=typed_read,
         )
         if options.preflight_only:
             return 0
