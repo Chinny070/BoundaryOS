@@ -47,6 +47,27 @@
       "failure_site": "gltest.direct.loader._inject_message_to_fd0 unlinking a locked temporary file",
       "status": "blocked_by_windows_runner"
     },
+    "github_actions_runs": [
+      {
+        "run_id": 39007250085,
+        "commit": "11e2e48fe68c4d20b1a32c5c45e158f28e253f2a",
+        "url": "https://github.com/Chinny070/BoundaryOS/actions/runs/39007250085",
+        "platform": "ubuntu-latest and windows-latest",
+        "linux_result": {
+          "passed": 63,
+          "failed": 4,
+          "status": "failed",
+          "failure_classes": [
+            "missing principal admission in an isolated negative fixture",
+            "test assertion used an unnormalized TreeMap key",
+            "expected-revert block rolled back setup state",
+            "test signer address representation was inconsistent"
+          ],
+          "disposition": "test setup defects corrected in the following candidate commit"
+        },
+        "windows_result": "passed helper tests and release configuration; Direct Mode is intentionally omitted on Windows because of the documented gltest temporary-file lock"
+      }
+    ],
     "genvm": {
       "pinned_runner": "v0.2.16",
       "contract": {

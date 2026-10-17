@@ -636,6 +636,8 @@ def test_revoked_delegation_cannot_be_used(direct_vm, direct_deploy, direct_alic
 
 def test_parent_cannot_reassign_a_child_who_selected_a_different_principal(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
     contract = setup_contract(direct_vm, direct_deploy, direct_alice, direct_bob)
+    direct_vm.sender = contract.owner
+    contract.admit_principal(address(direct_charlie))
     direct_vm.sender = direct_charlie
     contract.register_agent(address(direct_charlie))
     direct_vm.sender = direct_alice
@@ -724,7 +726,7 @@ def test_agent_registration_capacity_isolated_per_principal_and_reclaimable(
     contract.admit_principal(address(direct_charlie))
     direct_vm.sender = agents[8]
     contract.register_agent(address(direct_charlie))
-    assert int(contract.principal_agent_count[address(direct_bob)]) == 8
+    assert int(contract.principal_agent_count[to_checksum_address(address(direct_bob))]) == 8
 
     # The registering agent can release an unused slot; another address can
     # then register under the same principal.
@@ -733,7 +735,7 @@ def test_agent_registration_capacity_isolated_per_principal_and_reclaimable(
     replacement = Account.create()
     direct_vm.sender = replacement
     contract.register_agent(address(direct_bob))
-    assert int(contract.principal_agent_count[address(direct_bob)]) == 8
+    assert int(contract.principal_agent_count[to_checksum_address(address(direct_bob))]) == 8
 
 
 def test_global_principal_admission_slots_are_reclaimed_only_after_empty_exit(
@@ -747,14 +749,14 @@ def test_global_principal_admission_slots_are_reclaimed_only_after_empty_exit(
     with direct_vm.expect_revert("admitted principal capacity reached"):
         contract.admit_principal(principals[16].address)
 
+    # Register state under the first principal before trying to release it.
+    direct_vm.sender = principals[0].address
+    contract.register_agent(principals[0].address)
+    direct_vm.sender = contract.owner
     with direct_vm.expect_revert("principal still owns registered agents or policies"):
-        # Register state under the first principal before trying to release it.
-        direct_vm.sender = principals[0]
-        contract.register_agent(principals[0].address)
-        direct_vm.sender = contract.owner
         contract.remove_principal(principals[0].address)
 
-    direct_vm.sender = principals[0]
+    direct_vm.sender = principals[0].address
     contract.unregister_agent(principals[0].address)
     direct_vm.sender = contract.owner
     contract.remove_principal(principals[0].address)
@@ -772,14 +774,14 @@ def test_policy_capacity_released_after_expiry_agent_and_policy_reclamation(
     contract.admit_principal(owner)
     agent_accounts = [Account.create() for _ in range(5)]
     for index, account in enumerate(agent_accounts[:4]):
-        direct_vm.sender = account
+        direct_vm.sender = account.address
         contract.register_agent(owner)
-        direct_vm.sender = direct_bob
+        direct_vm.sender = owner
         contract.create_policy(f"tenant-policy-{index}", address(account.address), policy())
 
-    direct_vm.sender = agent_accounts[4]
+    direct_vm.sender = agent_accounts[4].address
     contract.register_agent(owner)
-    direct_vm.sender = direct_bob
+    direct_vm.sender = owner
     with direct_vm.expect_revert("principal policy capacity reached"):
         contract.create_policy("tenant-policy-over-cap", address(agent_accounts[4].address), policy())
 
@@ -793,9 +795,9 @@ def test_policy_capacity_released_after_expiry_agent_and_policy_reclamation(
     )
     contract.unregister_agent(address(agent_accounts[0].address))
     contract.reclaim_policy("tenant-policy-0")
-    direct_vm.sender = agent_accounts[0]
+    direct_vm.sender = agent_accounts[0].address
     contract.register_agent(owner)
-    direct_vm.sender = direct_bob
+    direct_vm.sender = owner
     contract.create_policy(
         "tenant-policy-0",
         address(agent_accounts[0].address),
